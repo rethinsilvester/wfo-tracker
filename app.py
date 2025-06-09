@@ -181,8 +181,6 @@ def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
 if __name__ == '__main__':
-    # Run with built-in Flask server for simplicity
-    #app.run(host='0.0.0.0', port=5000, debug=True)
-    if __name__ == '__main__':
+    # Get port from environment variable (Azure sets this to 80)
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
