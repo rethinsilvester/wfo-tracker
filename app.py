@@ -1,6 +1,6 @@
+import os
 from flask import Flask, request, render_template, jsonify
 import pandas as pd
-import os
 from werkzeug.utils import secure_filename
 import logging
 from datetime import datetime
@@ -182,4 +182,7 @@ def health_check():
 
 if __name__ == '__main__':
     # Run with built-in Flask server for simplicity
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    #app.run(host='0.0.0.0', port=5000, debug=True)
+    if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
