@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UV-WMS Admin WFO Tracker</title>
+    <title>UV-WMS Admin WFO Tracker - No Data</title>
     <style>
         * {
             margin: 0;
@@ -16,849 +16,185 @@
             background: #000000;
             min-height: 100vh;
             color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 40px;
+            text-align: center;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
+        .no-data-card {
             background: rgba(255, 255, 255, 0.1);
-            padding: 30px;
+            padding: 50px 40px;
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .header h1 {
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.7;
+        }
+
+        h1 {
             color: #ffffff;
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             background: linear-gradient(45deg, #00f5ff, #ff00ff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
-        .header p {
+        p {
             color: #cccccc;
             font-size: 1.1rem;
-            margin-bottom: 20px;
+            line-height: 1.6;
+            margin-bottom: 30px;
         }
 
-        .upload-section {
-            background: rgba(255, 255, 255, 0.1);
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
             padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .file-input-wrapper {
-            position: relative;
-            display: inline-block;
-            margin-right: 15px;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .file-input-label {
-            display: inline-block;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 400;
-            font-size: 0.9rem;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .file-input-label:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-        }
-
-        .upload-btn {
-            display: none;
-        }
-
-        .employees-section {
+            border-radius: 10px;
             margin-top: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .section-title {
-            color: white;
-            text-align: center;
-            margin-bottom: 25px;
-            font-size: 1.8rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .employees-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .employees-grid.five-employees {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
-        .employees-grid.five-employees .employee-card:nth-child(4),
-        .employees-grid.five-employees .employee-card:nth-child(5) {
-            grid-column: span 1;
-        }
-
-        .employees-grid.five-employees .employee-card:nth-child(4) {
-            grid-column: 1 / 2;
-            margin: 0 auto;
-        }
-
-        .employees-grid.five-employees .employee-card:nth-child(5) {
-            grid-column: 3 / 4;
-            margin: 0 auto;
-        }
-
-        .employee-card {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 25px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            max-width: 350px;
-            width: 100%;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .employee-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(45deg, #00f5ff, #ff00ff);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-        }
-
-        .employee-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .employee-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: 0 25px 50px rgba(255, 255, 255, 0.1);
-        }
-
-        .employee-card.expanded {
-            transform: scale(1.05);
-            z-index: 10;
-        }
-
-        .employee-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .employee-avatar {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-right: 15px;
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-        }
-
-        .employee-info h3 {
-            color: #ffffff;
-            font-size: 1.3rem;
-            margin-bottom: 5px;
-        }
-
-        .employee-info p {
-            color: #cccccc;
-            font-size: 0.9rem;
-        }
-
-        .status-indicators {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .status-badge {
-            flex: 1;
-            text-align: center;
-            padding: 12px 8px;
-            border-radius: 12px;
-            font-weight: 600;
-            color: white;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .status-badge::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .status-badge:hover::before {
-            left: 100%;
-        }
-
-        .wfo-badge {
-            background: linear-gradient(45deg, #e74c3c, #c0392b);
-        }
-
-        .wfh-badge {
-            background: linear-gradient(45deg, #3498db, #2980b9);
-        }
-
-        .leaves-summary {
-            opacity: 0;
-            max-height: 0;
-            overflow: hidden;
-            transition: all 0.4s ease;
-            margin-top: 15px;
-        }
-
-        .employee-card.expanded .leaves-summary {
-            opacity: 1;
-            max-height: 300px;
-        }
-
-        .leaves-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .leave-item {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .leave-item .count {
-            font-size: 1.5rem;
-            font-weight: bold;
+        .instructions h3 {
             color: #00f5ff;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
         }
 
-        .leave-item .label {
-            font-size: 0.8rem;
+        .instructions ol {
+            text-align: left;
             color: #cccccc;
-            margin-top: 2px;
+            max-width: 400px;
+            margin: 0 auto;
         }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
+        .instructions li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(45deg, #00f5ff, #0080ff);
             color: white;
-        }
-
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 4px solid white;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .error {
-            background: linear-gradient(45deg, #e74c3c, #c0392b);
-            color: white;
-            padding: 15px;
+            border: none;
+            padding: 15px 30px;
             border-radius: 10px;
-            margin: 20px 0;
-            text-align: center;
-        }
-
-        .success {
-            background: linear-gradient(45deg, #27ae60, #229954);
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            text-align: center;
-        }
-
-        /* Monthly Detail View Styles */
-        .monthly-detail {
-            margin-top: 50px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            padding: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .monthly-detail h2 {
-            color: #ffffff;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 2rem;
-            background: linear-gradient(45deg, #00f5ff, #ff00ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .attendance-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .attendance-table th {
-            background: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-            padding: 15px 10px;
-            text-align: center;
+            cursor: pointer;
             font-weight: 600;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 1rem;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 245, 255, 0.3);
+        }
+
+        .contact-info {
+            margin-top: 30px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .contact-info h4 {
+            color: #ff00ff;
+            margin-bottom: 10px;
+        }
+
+        .contact-info p {
             font-size: 0.9rem;
-        }
-
-        .attendance-table td {
-            padding: 12px 8px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.8rem;
-            color: #ffffff;
-        }
-
-        .attendance-table tr:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .employee-name-cell {
-            text-align: left !important;
-            font-weight: 600;
-            color: #00f5ff !important;
-            padding-left: 15px !important;
-        }
-
-        .status-wfo {
-            background: linear-gradient(45deg, #e74c3c, #c0392b);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-weight: 600;
-            display: inline-block;
-            min-width: 35px;
-        }
-
-        .status-wfh {
-            background: linear-gradient(45deg, #3498db, #2980b9);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-weight: 600;
-            display: inline-block;
-            min-width: 35px;
-        }
-
-        .status-sl {
-            background: linear-gradient(45deg, #f39c12, #e67e22);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-weight: 600;
-            display: inline-block;
-            min-width: 35px;
-        }
-
-        .status-pl {
-            background: linear-gradient(45deg, #9b59b6, #8e44ad);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-weight: 600;
-            display: inline-block;
-            min-width: 35px;
-        }
-
-        .weekend-cell {
-            background: rgba(128, 128, 128, 0.2);
-            color: #888888;
-        }
-
-        .date-header {
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            min-width: 30px;
-            max-width: 35px;
-        }
-
-        @media (max-width: 1024px) {
-            .employees-grid.five-employees {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .employees-grid.five-employees .employee-card:nth-child(4),
-            .employees-grid.five-employees .employee-card:nth-child(5) {
-                grid-column: span 1;
-                margin: 0;
-            }
+            margin-bottom: 10px;
         }
 
         @media (max-width: 768px) {
             .container {
-                padding: 15px;
-            }
-            
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .employees-grid,
-            .employees-grid.five-employees {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-            
-            .employee-card {
                 padding: 20px;
-                max-width: none;
-            }
-            
-            .employees-grid.five-employees .employee-card:nth-child(4),
-            .employees-grid.five-employees .employee-card:nth-child(5) {
-                grid-column: span 1;
-                margin: 0;
             }
 
-            .attendance-table {
-                font-size: 0.7rem;
+            .no-data-card {
+                padding: 30px 20px;
             }
-            
-            .attendance-table th,
-            .attendance-table td {
-                padding: 8px 4px;
+
+            h1 {
+                font-size: 1.5rem;
             }
-            
-            .date-header {
-                font-size: 0.6rem;
+
+            p {
+                font-size: 1rem;
+            }
+
+            .icon {
+                font-size: 3rem;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>UV-WCS WFO Tracker</h1>
-            <p>I dont want to track this, but I have to.. </p>
+        <div class="no-data-card">
+            <div class="icon">📊</div>
+            <h1>No Data Available</h1>
+            <p>The WFO tracker is ready, but no attendance data has been loaded yet.</p>
             
-            <div class="upload-section">
-                <div class="file-input-wrapper">
-                    <input type="file" id="excelFile" class="file-input" accept=".xlsx,.xls">
-                    <label for="excelFile" class="file-input-label">📁 Upload Excel File</label>
-                </div>
-                <div id="fileName" style="margin-top: 10px; color: #cccccc;"></div>
+            <div class="instructions">
+                <h3>🔧 For Administrators</h3>
+                <ol>
+                    <li>Prepare your Excel attendance file</li>
+                    <li>Upload it to the server's <code>master_data</code> folder</li>
+                    <li>Name it <code>master_data.xlsx</code></li>
+                    <li>Click the refresh button below</li>
+                </ol>
+            </div>
+
+            <button class="refresh-btn" onclick="refreshPage()">🔄 Check for Data</button>
+
+            <div class="contact-info">
+                <h4>📞 Need Help?</h4>
+                <p>Contact your system administrator to upload the attendance data.</p>
+                <p><strong>Expected file format:</strong> Excel (.xlsx) with employee attendance sheets</p>
             </div>
         </div>
-
-        <div id="loadingDiv" class="loading" style="display: none;">
-            <div class="spinner"></div>
-            <p>Processing attendance data...</p>
-        </div>
-
-        <div id="errorDiv" style="display: none;"></div>
-        <div id="successDiv" style="display: none;"></div>
-
-        <div id="employeesContainer"></div>
     </div>
 
     <script>
-        let currentData = null;
-
-        document.getElementById('excelFile').addEventListener('change', function(e) {
-            console.log('File input changed:', e.target.files);
-            const fileName = e.target.files[0]?.name;
-            const fileNameDiv = document.getElementById('fileName');
-            if (fileName) {
-                fileNameDiv.textContent = `Selected: ${fileName}`;
-                fileNameDiv.style.color = '#00f5ff';
-                console.log('About to upload file:', fileName);
-                // Auto-process the file
-                uploadFile();
-            } else {
-                fileNameDiv.textContent = '';
-                console.log('No file selected');
-            }
-        });
-
-        function generateAvatar(name) {
-            const colors = [
-                'linear-gradient(45deg, #f093fb, #f5576c)', // Pink for Lokesh KN
-                'linear-gradient(45deg, #667eea, #764ba2)', // Purple for Rethin Silvester  
-                'linear-gradient(45deg, #43e97b, #38f9d7)', // Green for Salmon Jose
-                'linear-gradient(45deg, #ff9a9e, #fecfef)', // Pink for Sowmya Sadhasivam
-                'linear-gradient(45deg, #4facfe, #00f2fe)', // Blue for Suruchi Parashar
-            ];
-            
-            const initials = name.split(' ').map(word => word.charAt(0)).join('').substring(0, 2).toUpperCase();
-            
-            // Assign specific colors based on name
-            let colorIndex = 0;
-            if (name.toLowerCase().includes('lokesh')) colorIndex = 0;
-            else if (name.toLowerCase().includes('rethin')) colorIndex = 1;
-            else if (name.toLowerCase().includes('salmon')) colorIndex = 2;
-            else if (name.toLowerCase().includes('sowmya')) colorIndex = 3;
-            else if (name.toLowerCase().includes('suruchi')) colorIndex = 4;
-            else colorIndex = name.length % colors.length;
-            
-            return {
-                initials: initials,
-                background: colors[colorIndex]
-            };
+        function refreshPage() {
+            window.location.reload();
         }
 
-        function createEmployeeCard(employee, index) {
-            const avatar = generateAvatar(employee.name);
-            const wfoCount = employee.summary.WFO || 0;
-            const wfhCount = employee.summary.WFH || 0;
-            const slCount = employee.summary.SL || 0;
-            const plCount = employee.summary.PL || 0;
-            const totalDays = employee.summary.Total_Days || 0;
-            
-            return `
-                <div class="employee-card" onclick="toggleEmployeeCard(this)">
-                    <div class="employee-header">
-                        <div class="employee-avatar" style="background: ${avatar.background}">
-                            ${avatar.initials}
-                        </div>
-                        <div class="employee-info">
-                            <h3>${employee.name}</h3>
-                            <p>${employee.department || 'IS'} • ${employee.team_manager || 'Shivakumar Jayabalan'}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="status-indicators">
-                        <div class="status-badge wfo-badge">
-                            <div style="font-size: 1.2rem; font-weight: bold;">${wfoCount}</div>
-                            <div style="font-size: 0.8rem;">WFO Days</div>
-                        </div>
-                        <div class="status-badge wfh-badge">
-                            <div style="font-size: 1.2rem; font-weight: bold;">${wfhCount}</div>
-                            <div style="font-size: 0.8rem;">WFH Days</div>
-                        </div>
-                    </div>
-                    
-                    <div class="leaves-summary">
-                        <h4 style="color: #ffffff; margin-bottom: 10px;">📊 Detailed Summary</h4>
-                        <div class="leaves-grid">
-                            <div class="leave-item">
-                                <div class="count">${slCount}</div>
-                                <div class="label">Sick Leave</div>
-                            </div>
-                            <div class="leave-item">
-                                <div class="count">${plCount}</div>
-                                <div class="label">Personal Leave</div>
-                            </div>
-                            <div class="leave-item">
-                                <div class="count">${totalDays}</div>
-                                <div class="label">Total Working Days</div>
-                            </div>
-                            <div class="leave-item">
-                                <div class="count">${Math.round((wfoCount / 12) * 100) || 0}%</div>
-                                <div class="label">Office Attendance</div>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top: 15px; padding: 10px; background: rgba(255, 255, 255, 0.1); border-radius: 8px; color: #ffffff;">
-                            <strong>ID:</strong> ${employee.person_id || 'N/A'}<br>
-                            <strong>Shift:</strong> ${employee.shift_timings || 'Standard'}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+        // Auto-refresh every 30 seconds to check for new data
+        setInterval(refreshPage, 30000);
 
-        function toggleEmployeeCard(card) {
-            // Close other expanded cards
-            document.querySelectorAll('.employee-card.expanded').forEach(otherCard => {
-                if (otherCard !== card) {
-                    otherCard.classList.remove('expanded');
-                }
-            });
-            
-            // Toggle current card
-            card.classList.toggle('expanded');
-        }
-
-        function displayEmployees(data) {
-            console.log('displayEmployees called with data:', data);
-            currentData = data;
-            const container = document.getElementById('employeesContainer');
-            let html = '';
-            
-            // Sort sheet names by month in descending order
-            const sortedSheetNames = Object.keys(data).sort((a, b) => {
-                console.log('Sorting sheets:', a, 'vs', b);
-                // Extract month-year from sheet names for comparison
-                const getMonthYear = (sheetName) => {
-                    const cleaned = sheetName.replace(/^App Admin\s*/i, '').replace(/\s*-\s*\d+\s*Employees?$/i, '').trim();
-                    // Handle different formats: "April", "April 2025", "April-2025", etc.
-                    const parts = cleaned.split(/[\s-]+/);
-                    const month = parts[0];
-                    const year = parts[1] || new Date().getFullYear(); // Default to current year if not specified
-                    
-                    // Convert month name to number for sorting
-                    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                                      'July', 'August', 'September', 'October', 'November', 'December'];
-                    const monthNum = monthNames.findIndex(m => m.toLowerCase().startsWith(month.toLowerCase()));
-                    
-                    return { year: parseInt(year), month: monthNum !== -1 ? monthNum : 0 };
-                };
-                
-                const dateA = getMonthYear(a);
-                const dateB = getMonthYear(b);
-                
-                // Sort by year descending, then by month descending
-                if (dateA.year !== dateB.year) {
-                    return dateB.year - dateA.year;
-                }
-                return dateB.month - dateA.month;
-            });
-            
-            console.log('Sorted sheet names:', sortedSheetNames);
-            
-            sortedSheetNames.forEach(sheetName => {
-                const sheetData = data[sheetName];
-                if (sheetData.employees && sheetData.employees.length > 0) {
-                    const employeeCount = sheetData.employees.length;
-                    const gridClass = employeeCount === 5 ? 'employees-grid five-employees' : 'employees-grid';
-                    
-                    // Extract and format month-year from sheet name
-                    const cleanTitle = sheetName.replace(/^App Admin\s*/i, '').replace(/\s*-\s*\d+\s*Employees?$/i, '').trim() || sheetName;
-                    
-                    // Format as Month-Year (e.g., "April" becomes "April-2025")
-                    const formatMonthYear = (title) => {
-                        const parts = title.split(/[\s-]+/);
-                        const month = parts[0];
-                        const year = parts[1] || new Date().getFullYear(); // Default to current year
-                        return `${month}-${year}`;
-                    };
-                    
-                    const formattedTitle = formatMonthYear(cleanTitle);
-                    
-                    html += `
-                        <div class="employees-section">
-                            <h2 class="section-title">
-                                📅 ${formattedTitle}
-                            </h2>
-                            <div class="${gridClass}">
-                                ${sheetData.employees.map((employee, index) => createEmployeeCard(employee, index)).join('')}
-                            </div>
-                        </div>
-                    `;
-                }
-            });
-            
-            // Add monthly detail view with same sorting
-            html += createMonthlyDetailView(data, sortedSheetNames);
-            
-            container.innerHTML = html;
-        }
-
-        function createMonthlyDetailView(data, sortedSheetNames = null) {
-            let html = '<div class="monthly-detail">';
-            
-            const sheetNames = sortedSheetNames || Object.keys(data);
-            
-            sheetNames.forEach(sheetName => {
-                const sheetData = data[sheetName];
-                if (sheetData.employees && sheetData.employees.length > 0) {
-                    html += `
-                        <h2>📊 ${sheetName} - Detailed Attendance</h2>
-                        <div style="overflow-x: auto;">
-                            <table class="attendance-table">
-                                <thead>
-                                    <tr>
-                                        <th style="min-width: 150px;">Employee</th>
-                                        ${sheetData.dates.map((date, index) => {
-                                            // Extract just the date part and format as mm/dd
-                                            let dateStr = date.date;
-                                            let dayStr = date.day;
-                                            
-                                            // If date contains timestamp, extract just the date part
-                                            if (dateStr.includes(' ')) {
-                                                dateStr = dateStr.split(' ')[0];
-                                            }
-                                            
-                                            // Convert to mm/dd format if it's in yyyy-mm-dd format
-                                            if (dateStr.includes('-') && dateStr.length > 7) {
-                                                const parts = dateStr.split('-');
-                                                if (parts.length === 3) {
-                                                    dateStr = `${parts[1]}/${parts[2]}`;
-                                                }
-                                            }
-                                            
-                                            // Shorten day names
-                                            const shortDay = dayStr.substring(0, 3);
-                                            
-                                            return `<th class="date-header">${dateStr}<br><span style="font-size: 0.7em;">${shortDay}</span></th>`;
-                                        }).join('')}
-                                        <th>WFO</th>
-                                        <th>WFH</th>
-                                        <th>SL</th>
-                                        <th>PL</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${sheetData.employees.map(employee => {
-                                        return `
-                                            <tr>
-                                                <td class="employee-name-cell">${employee.name}</td>
-                                                ${sheetData.dates.map((date, dateIndex) => {
-                                                    const status = employee.attendance[dateIndex] || '';
-                                                    const isWeekend = date.day.toLowerCase() === 'saturday' || date.day.toLowerCase() === 'sunday';
-                                                    const cellClass = isWeekend ? 'weekend-cell' : '';
-                                                    
-                                                    let statusHtml = '';
-                                                    if (status) {
-                                                        const statusClass = `status-${status.toLowerCase()}`;
-                                                        statusHtml = `<span class="${statusClass}">${status}</span>`;
-                                                    } else if (isWeekend) {
-                                                        statusHtml = '<span style="color: #666;">—</span>';
-                                                    }
-                                                    
-                                                    return `<td class="${cellClass}">${statusHtml}</td>`;
-                                                }).join('')}
-                                                <td><strong>${employee.summary.WFO || 0}</strong></td>
-                                                <td><strong>${employee.summary.WFH || 0}</strong></td>
-                                                <td><strong>${employee.summary.SL || 0}</strong></td>
-                                                <td><strong>${employee.summary.PL || 0}</strong></td>
-                                            </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                }
-            });
-            
-            html += '</div>';
-            return html;
-        }
-
-        function showMessage(message, type) {
-            const errorDiv = document.getElementById('errorDiv');
-            const successDiv = document.getElementById('successDiv');
-            
-            if (type === 'error') {
-                errorDiv.innerHTML = `<div class="error">${message}</div>`;
-                errorDiv.style.display = 'block';
-                successDiv.style.display = 'none';
-            } else {
-                successDiv.innerHTML = `<div class="success">${message}</div>`;
-                successDiv.style.display = 'block';
-                errorDiv.style.display = 'none';
-            }
-            
-            setTimeout(() => {
-                errorDiv.style.display = 'none';
-                successDiv.style.display = 'none';
-            }, 5000);
-        }
-
-        async function uploadFile() {
-            console.log('uploadFile function called');
-            const fileInput = document.getElementById('excelFile');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                console.log('No file found in input');
-                showMessage('Please select an Excel file first.', 'error');
-                return;
-            }
-            
-            console.log('File found:', file.name, file.size, 'bytes');
-            const loadingDiv = document.getElementById('loadingDiv');
-            
-            loadingDiv.style.display = 'block';
-            
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            try {
-                console.log('Sending POST request to /upload');
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
+        // Check for data immediately when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Try to fetch health check to see if data is available
+            fetch('/health')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.has_master_data) {
+                        // Data is available, redirect to main page
+                        window.location.href = '/';
+                    }
+                })
+                .catch(error => {
+                    console.log('Health check failed:', error);
                 });
-                
-                console.log('Response status:', response.status);
-                const result = await response.json();
-                console.log('Response data:', result);
-                
-                if (result.success) {
-                    displayEmployees(result.data);
-                    showMessage(`✅ ${result.message}`, 'success');
-                } else {
-                    showMessage(`❌ ${result.error}`, 'error');
-                }
-            } catch (error) {
-                console.error('Upload error:', error);
-                showMessage(`❌ Error uploading file: ${error.message}`, 'error');
-            } finally {
-                loadingDiv.style.display = 'none';
-            }
-        }
-
-        // Add keyboard support
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                document.querySelectorAll('.employee-card.expanded').forEach(card => {
-                    card.classList.remove('expanded');
-                });
-            }
         });
     </script>
 </body>
