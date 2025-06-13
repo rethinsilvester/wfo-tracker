@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WFO Tracker - Employee Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .employees-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .employee-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .employee-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        }
+        
+        .employee-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4CAF50, #2196F3);
+        }
+        
+        .employee-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .employee-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-right: 15px;
+        }
+        
+        .employee-info h3 {
+            color: #333;
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+        }
+        
+        .employee-info p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .current-month-stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #f0f0f0;
+        }
+        
+        .stat-box.wfh {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+        
+        .stat-box.wfo {
+            border-color: #FF9800;
+            background: rgba(255, 152, 0, 0.05);
+        }
+        
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-box.wfh .stat-number {
+            color: #4CAF50;
+        }
+        
+        .stat-box.wfo .stat-number {
+            color: #FF9800;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 600;
+        }
+        
+        .chart-container {
+            height: 150px;
+            margin-top: 15px;
+        }
+        
+        .view-details {
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #667eea;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .view-details:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .employees-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 WFO Tracker Dashboard</h1>
+            <p>Track Work From Home & Work From Office for {{ current_month }}</p>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh Data</button>
+        </div>
+        
+        <div class="employees-grid">
+            {% for employee_name, data in employees.items() %}
+            <div class="employee-card" onclick="viewEmployeeDetails('{{ employee_name }}')">
+                <div class="employee-header">
+                    <div class="employee-avatar">
+                        {{ employee_name[0].upper() }}
+                    </div>
+                    <div class="employee-info">
+                        <h3>{{ employee_name }}</h3>
+                        <p>{{ current_month }} Summary</p>
+                    </div>
+                </div>
+                
+                <div class="current-month-stats">
+                    <div class="stat-box wfh">
+                        <div class="stat-number">{{ data.current_month_wfh }}</div>
+                        <div class="stat-label">WFH Days</div>
+                    </div>
+                    <div class="stat-box wfo">
+                        <div class="stat-number">{{ data.current_month_wfo }}</div>
+                        <div class="stat-label">WFO Days</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="chart-{{ loop.index }}"></canvas>
+                </div>
+                
+                <button class="view-details">👁️ View Detailed Breakdown</button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        // Create charts for each employee
+        {% for employee_name, data in employees.items() %}
+        (function() {
+            const ctx = document.getElementById('chart-{{ loop.index }}').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [{% for month in data.last_6_months %}'{{ month.month_short }}'{% if not loop.last %},{% endif %}{% endfor %}],
+                    datasets: [{
+                        label: 'WFH',
+                        data: [{% for month in data.last_6_months %}{{ month.wfh }}{% if not loop.last %},{% endif %}{% endfor %}],
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'WFO',
+                        data: [{% for month in data.last_6_months %}{{ month.wfo }}{% if not loop.last %},{% endif %}{% endfor %}],
+                        borderColor: '#FF9800',
+                        backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            radius: 3
+                        }
+                    }
+                }
+            });
+        })();
+        {% endfor %}
+        
+        function viewEmployeeDetails(employeeName) {
+            window.location.href = `/employee/${encodeURIComponent(employeeName)}`;
+        }
+        
+        function refreshData() {
+            fetch('/api/refresh')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    } else {
+                        alert('Error refreshing data: ' + data.message);
+                    }
+                });
+        }
+    </script>
+</body>
+</html>

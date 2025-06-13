@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ employee_data.employee_name }} - WFO Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .back-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .employee-profile {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .employee-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 2rem;
+            margin: 0 auto 20px;
+        }
+        
+        .employee-name {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .employee-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .months-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+        }
+        
+        .month-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .month-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+        }
+        
+        .month-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .month-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .month-total {
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .month-stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #f0f0f0;
+        }
+        
+        .stat-item.wfh {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+        
+        .stat-item.wfo {
+            border-color: #FF9800;
+            background: rgba(255, 152, 0, 0.05);
+        }
+        
+        .stat-number {
+            font-size: 1.6rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-item.wfh .stat-number {
+            color: #4CAF50;
+        }
+        
+        .stat-item.wfo .stat-number {
+            color: #FF9800;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 600;
+        }
+        
+        .dates-section {
+            margin-top: 20px;
+        }
+        
+        .dates-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .dates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px;
+        }
+        
+        .date-item {
+            padding: 8px 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .date-item.wfh {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid #4CAF50;
+            color: #2E7D32;
+        }
+        
+        .date-item.wfo {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid #FF9800;
+            color: #E65100;
+        }
+        
+        .date-day {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        
+        .date-date {
+            display: block;
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        
+        .no-data {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .months-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .month-stats {
+                flex-direction: column;
+            }
+            
+            .dates-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-button">← Back to Dashboard</a>
+        
+        <div class="employee-profile">
+            <div class="employee-avatar">
+                {{ employee_data.employee_name[0].upper() }}
+            </div>
+            <h1 class="employee-name">{{ employee_data.employee_name }}</h1>
+            <p class="employee-subtitle">Work Schedule Details</p>
+        </div>
+        
+        {% if employee_data.monthly_breakdown %}
+        <div class="months-grid">
+            {% for month_year, month_data in employee_data.monthly_breakdown.items() %}
+            <div class="month-card">
+                <div class="month-header">
+                    <h3 class="month-title">{{ month_data.month_name }}</h3>
+                    <span class="month-total">{{ month_data.total_days }} days</span>
+                </div>
+                
+                <div class="month-stats">
+                    <div class="stat-item wfh">
+                        <div class="stat-number">{{ month_data.wfh_count }}</div>
+                        <div class="stat-label">WFH Days</div>
+                    </div>
+                    <div class="stat-item wfo">
+                        <div class="stat-number">{{ month_data.wfo_count }}</div>
+                        <div class="stat-label">WFO Days</div>
+                    </div>
+                </div>
+                
+                {% if month_data.dates %}
+                <div class="dates-section">
+                    <div class="dates-header">
+                        📅 Daily Breakdown
+                    </div>
+                    <div class="dates-grid">
+                        {% for date_info in month_data.dates %}
+                        <div class="date-item {{ date_info.type.lower() }}">
+                            <span class="date-day">{{ date_info.day }}</span>
+                            <span class="date-date">{{ date_info.date[-2:] }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-data">
+            <h3>No data available for {{ employee_data.employee_name }}</h3>
+            <p>Please check if the employee data is properly loaded.</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
