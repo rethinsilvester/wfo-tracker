@@ -1,7 +1,6 @@
 Flask==2.3.3
 pandas==2.0.3
 openpyxl==3.1.2
-matplotlib==3.7.2
-seaborn==0.12.2
-numpy==1.25.2
+xlrd==2.0.1
 Werkzeug==2.3.7
+Jinja2==3.1.2
