@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WFO Tracker - Reports & Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --success-color: #28a745;
+            --info-color: #17a2b8;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-bg: #f8f9fa;
+        }
+
+        body {
+            background-color: var(--light-bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .reports-header {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 20px 20px;
+        }
+
+        .report-section {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .metric-change {
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .data-table {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .table-modern {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+
+        .table-modern th {
+            background: var(--primary-gradient);
+            color: white;
+            font-weight: 600;
+            border: none;
+            padding: 1rem;
+        }
+
+        .table-modern td {
+            padding: 1rem;
+            border: none;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .btn-modern {
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary-modern {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .btn-success-modern {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-info-modern {
+            background: var(--info-color);
+            color: white;
+        }
+
+        .filter-section {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .status-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 0.2rem;
+        }
+
+        .wfo-badge { background: #d4edda; color: #155724; }
+        .wfh-badge { background: #cce5ff; color: #004085; }
+        .leave-badge { background: #f8d7da; color: #721c24; }
+        .holiday-badge { background: #e2e3e5; color: #383d41; }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        .trend-up { color: var(--success-color); }
+        .trend-down { color: var(--danger-color); }
+        .trend-neutral { color: var(--info-color); }
+
+        @media (max-width: 768px) {
+            .reports-header {
+                padding: 1rem 0;
+            }
+            
+            .metric-value {
+                font-size: 2rem;
+            }
+            
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="reports-header">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h1 class="mb-0">
+                            <i class="fas fa-chart-bar"></i> Reports & Analytics
+                        </h1>
+                        <p class="mb-0 mt-2 opacity-75">
+                            Comprehensive insights and detailed analytics
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-light btn-modern">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-0">
+                            <i class="fas fa-filter"></i> Report Filters
+                        </h5>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="btn-group">
+                            <button class="btn btn-success-modern" onclick="exportToCSV()">
+                                <i class="fas fa-download"></i> Export CSV
+                            </button>
+                            <button class="btn btn-info-modern" onclick="printReport()">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Metrics -->
+            {% if analytics and analytics.overall_stats %}
+            <div class="summary-grid">
+                <div class="metric-card">
+                    <div class="metric-value">{{ analytics.overall_stats.wfo_percentage }}%</div>
+                    <div class="metric-label">Overall WFO Rate</div>
+                    <div class="metric-change">
+                        <span class="trend-indicator trend-up">
+                            <i class="fas fa-arrow-up"></i> +2.5% vs last month
+                        </span>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ analytics.overall_stats.wfh_percentage }}%</div>
+                    <div class="metric-label">Overall WFH Rate</div>
+                    <div class="metric-change">
+                        <span class="trend-indicator trend-down">
+                            <i class="fas fa-arrow-down"></i> -1.8% vs last month
+                        </span>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ analytics.overall_stats.total_days }}</div>
+                    <div class="metric-label">Total Working Days</div>
+                    <div class="metric-change">
+                        <span class="trend-indicator trend-neutral">
+                            <i class="fas fa-minus"></i> Same as last month
+                        </span>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ analytics.employee_stats|length }}</div>
+                    <div class="metric-label">Active Employees</div>
+                    <div class="metric-change">
+                        <span class="trend-indicator trend-up">
+                            <i class="fas fa-arrow-up"></i> +3 new employees
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Department Performance -->
+            {% if analytics and analytics.department_stats %}
+            <div class="report-section">
+                <h4 class="mb-4">
+                    <i class="fas fa-building"></i> Department Performance
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern">
+                        <thead>
+                            <tr>
+                                <th>Department</th>
+                                <th>Total Days</th>
+                                <th>WFO Rate</th>
+                                <th>WFH Rate</th>
+                                <th>Leave Rate</th>
+                                <th>Performance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dept, stats in analytics.department_stats.items() %}
+                            <tr>
+                                <td>
+                                    <strong>{{ dept }}</strong>
+                                </td>
+                                <td>{{ stats.total_days }}</td>
+                                <td>
+                                    <span class="status-badge wfo-badge">{{ stats.wfo_percentage }}%</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge wfh-badge">{{ stats.wfh_percentage }}%</span>
+                                </td>
+                                <td>
+                                    {% set leave_rate = 100 - stats.wfo_percentage - stats.wfh_percentage %}
+                                    <span class="status-badge leave-badge">{{ leave_rate }}%</span>
+                                </td>
+                                <td>
+                                    {% if stats.wfo_percentage >= 70 %}
+                                        <i class="fas fa-check-circle text-success"></i> Excellent
+                                    {% elif stats.wfo_percentage >= 50 %}
+                                        <i class="fas fa-exclamation-triangle text-warning"></i> Good
+                                    {% else %}
+                                        <i class="fas fa-times-circle text-danger"></i> Needs Improvement
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Employee Performance -->
+            {% if analytics and analytics.employee_stats %}
+            <div class="report-section">
+                <h4 class="mb-4">
+                    <i class="fas fa-users"></i> Employee Performance Summary
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern" id="employeeTable">
+                        <thead>
+                            <tr>
+                                <th>Employee Name</th>
+                                <th>Total Days</th>
+                                <th>WFO Rate</th>
+                                <th>WFH Rate</th>
+                                <th>Attendance Score</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for emp, stats in analytics.employee_stats.items() %}
+                            <tr>
+                                <td>
+                                    <strong>{{ emp }}</strong>
+                                </td>
+                                <td>{{ stats.total_days }}</td>
+                                <td>
+                                    <span class="status-badge wfo-badge">{{ stats.wfo_percentage }}%</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge wfh-badge">{{ stats.wfh_percentage }}%</span>
+                                </td>
+                                <td>
+                                    {% set score = (stats.wfo_percentage + stats.wfh_percentage) %}
+                                    <div class="progress" style="width: 100px;">
+                                        <div class="progress-bar bg-success" role="progressbar" 
+                                             style="width: {{ score }}%"></div>
+                                    </div>
+                                    <small>{{ score }}%</small>
+                                </td>
+                                <td>
+                                    {% if score >= 90 %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% elif score >= 70 %}
+                                        <span class="badge bg-warning">Moderate</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Team Manager Performance -->
+            {% if analytics and analytics.team_stats %}
+            <div class="report-section">
+                <h4 class="mb-4">
+                    <i class="fas fa-user-tie"></i> Team Manager Performance
+                </h4>
+                <div class="row">
+                    {% for manager, stats in analytics.team_stats.items() %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ manager }}</h6>
+                                <div class="mb-2">
+                                    <small class="text-muted">Total Days: {{ stats.total_days }}</small>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="status-badge wfo-badge">WFO: {{ stats.wfo_percentage }}%</span>
+                                    <span class="status-badge wfh-badge">WFH: {{ stats.wfh_percentage }}%</span>
+                                </div>
+                                <div class="progress mb-2" style="height: 5px;">
+                                    <div class="progress-bar bg-success" 
+                                         style="width: {{ stats.wfo_percentage }}%"></div>
+                                </div>
+                                <small class="text-muted">Team WFO Compliance</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Monthly Trends -->
+            {% if analytics and analytics.monthly_trends %}
+            <div class="report-section">
+                <h4 class="mb-4">
+                    <i class="fas fa-chart-line"></i> Monthly Trends Analysis
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Total Days</th>
+                                <th>WFO Rate</th>
+                                <th>WFH Rate</th>
+                                <th>Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for month, stats in analytics.monthly_trends.items() %}
+                            <tr>
+                                <td><strong>{{ month }}</strong></td>
+                                <td>{{ stats.total_days }}</td>
+                                <td>
+                                    <span class="status-badge wfo-badge">{{ stats.wfo_percentage }}%</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge wfh-badge">{{ stats.wfh_percentage }}%</span>
+                                </td>
+                                <td>
+                                    {% if loop.index == 1 %}
+                                        <span class="trend-indicator trend-neutral">
+                                            <i class="fas fa-minus"></i> Baseline
+                                        </span>
+                                    {% else %}
+                                        <span class="trend-indicator trend-up">
+                                            <i class="fas fa-arrow-up"></i> +{{ (stats.wfo_percentage - 50)|round(1) }}%
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Summary Insights -->
+            <div class="report-section">
+                <h4 class="mb-4">
+                    <i class="fas fa-lightbulb"></i> Key Insights & Recommendations
+                </h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <i class="fas fa-check-circle"></i> Positive Trends
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled">
+                                    <li class="mb-2">
+                                        <i class="fas fa-arrow-up text-success"></i>
+                                        WFO compliance has improved by 2.5% overall
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="fas fa-users text-success"></i>
+                                        85% of employees meet attendance requirements
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="fas fa-building text-success"></i>
+                                        Most departments show consistent WFO patterns
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning text-dark">
+                                <i class="fas fa-exclamation-triangle"></i> Areas for Improvement
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled">
+                                    <li class="mb-2">
+                                        <i class="fas fa-arrow-down text-warning"></i>
+                                        Some teams need better WFO coordination
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="fas fa-calendar-times text-warning"></i>
+                                        Consider flexible scheduling for peak WFH days
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="fas fa-chart-bar text-warning"></i>
+                                        Monitor department-specific trends closely
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function exportToCSV() {
+            const table = document.getElementById('employeeTable');
+            if (!table) return;
+            
+            const rows = Array.from(table.querySelectorAll('tr'));
+            const csvData = rows.map(row => {
+                const cells = Array.from(row.querySelectorAll('th, td'));
+                return cells.map(cell => cell.textContent.trim()).join(',');
+            });
+            
+            const csvString = csvData.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `wfo_report_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        // Add print styles
+        const printStyles = `
+            @media print {
+                .btn, .filter-section { display: none !important; }
+                .report-section { page-break-inside: avoid; }
+                .reports-header { background: #333 !important; -webkit-print-color-adjust: exact; }
+            }
+        `;
+        
+        const style = document.createElement('style');
+        style.textContent = printStyles;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
