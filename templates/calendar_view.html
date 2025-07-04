@@ -418,7 +418,10 @@
                                 {% set day_num = loop.index %}
                                 {% set is_weekend = (day_num % 7 == 0 or day_num % 7 == 1) %}
                                 {% set status = employee.daily_status.get(date_col, '') %}
-                                {% set status_class = 'status-' + status.lower().replace(' ', '-').replace('planned-leave', 'planned-leave').replace('sick-leave', 'sl') if status else 'status-empty' %}
+                                {% set status_class = 'status-' + status.lower().replace(' ', '-').replace('planned', 'planned') if status else 'status-empty' %}
+                                {% if status.upper() == 'PL' %}
+                                    {% set status_class = 'status-planned-leave' %}
+                                {% endif %}
                                 <td class="status-cell {{ status_class }} {% if is_weekend and not status %}weekend-cell{% endif %}"
                                     onclick="showStatusDetails('{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
                                     onmouseenter="showTooltip(event, '{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
@@ -479,6 +482,14 @@
                 <div class="stat-card">
                     <div class="stat-number" style="color: var(--wfh-color);">{{ monthly_stats.overall_wfh_percentage }}%</div>
                     <div class="stat-label">WFH Percentage</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: var(--sick-leave-color);">{{ monthly_stats.overall_sick_leave_percentage }}%</div>
+                    <div class="stat-label">Sick Leave %</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: var(--planned-leave-color);">{{ monthly_stats.overall_planned_leave_percentage }}%</div>
+                    <div class="stat-label">Planned Leave %</div>
                 </div>
                 {% else %}
                 <div class="col-12 text-center text-muted">

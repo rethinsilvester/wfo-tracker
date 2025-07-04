@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from flask import Flask, request, render_template, jsonify, redirect, url_for
+from flask import Flask, request, render_template, jsonify, redirect, url_for, send_from_directory
 from datetime import datetime
 import json
 from collections import defaultdict
@@ -21,6 +21,8 @@ EXCEL_FILE_PATTERN = '*.xlsx'
 
 # Create data folder if it doesn't exist
 os.makedirs(DATA_FOLDER, exist_ok=True)
+# Create static folder if it doesn't exist
+os.makedirs('static/images', exist_ok=True)
 
 def find_latest_excel_file():
     """Find the latest Excel file in the data folder"""
@@ -118,11 +120,14 @@ def load_data_from_repo():
 def process_monthly_sheet(df, sheet_name):
     """Process a single monthly sheet and extract relevant data"""
     try:
-        if df.empty or len(df) < 2:
+        if df.empty or len(df) < 3:
             return None
         
         logger.info(f"Processing sheet: {sheet_name}")
         logger.info(f"Sheet shape: {df.shape}")
+        logger.info(f"First few rows preview:")
+        for i in range(min(5, len(df))):
+            logger.info(f"Row {i}: {list(df.iloc[i])[:8]}")  # First 8 columns
         
         employee_data = []
         date_columns = []
@@ -133,71 +138,107 @@ def process_monthly_sheet(df, sheet_name):
                 date_columns.append(str(col_name))
         
         logger.info(f"Found {len(date_columns)} date columns")
+        logger.info(f"Column headers: {list(df.columns)[:8]}")  # First 8 column headers
         
         seen_employees = set()
         
-        # Process each employee row (skip first 2 rows which are headers)
+        # Process each employee row - Employee data starts from Row 3 (index 2)
         for idx, row in df.iterrows():
+            # Skip rows 0 and 1 (headers), start processing from row 2 (which is row 3 in Excel)
             if idx < 2:
-                logger.info(f"Skipping header row {idx}")
+                logger.info(f"Skipping header row {idx}: {row.iloc[0] if len(row) > 0 else 'empty'}")
                 continue
                 
             emp_name_raw = row.iloc[0]
             if pd.isna(emp_name_raw):
+                logger.info(f"Row {idx}: Skipping - empty name")
                 continue
                 
             emp_name = str(emp_name_raw).strip()
             
-            # Special debug for Lokesh
-            if 'lokesh' in emp_name.lower():
-                logger.info(f"LOKESH DEBUG - Raw name: '{emp_name_raw}', Cleaned: '{emp_name}'")
-                logger.info(f"LOKESH DEBUG - Row index: {idx}")
+            # Enhanced debug for all employees to understand structure
+            logger.info(f"Processing row {idx} (Excel row {idx+1}): {emp_name}")
+            logger.info(f"  Raw data: {list(row)[:8]}")  # First 8 columns
             
-            # Skip if empty name, header row, or duplicate
+            # Enhanced debug for Lokesh specifically
+            if 'lokesh' in emp_name.lower():
+                logger.info(f"=== LOKESH DETAILED DEBUG ===")
+                logger.info(f"LOKESH - Row {idx} (Excel row {idx+1})")
+                logger.info(f"LOKESH - Column 0 (Name): '{row.iloc[0]}'")
+                logger.info(f"LOKESH - Column 1 (Person ID): '{row.iloc[1]}'")
+                logger.info(f"LOKESH - Column 2 (Department): '{row.iloc[2]}'")
+                logger.info(f"LOKESH - Column 3 (Team Manager): '{row.iloc[3]}'")
+                logger.info(f"LOKESH - Column 4 (Shift Timings): '{row.iloc[4]}'")
+                logger.info(f"LOKESH - Full row length: {len(row)}")
+            
+            # Skip if empty name or header row
             if (not emp_name or 
                 emp_name == '' or 
-                emp_name.lower() == 'employee name' or
-                emp_name in seen_employees):
-                if 'lokesh' in emp_name.lower():
-                    logger.info(f"LOKESH DEBUG - Skipping due to validation")
+                emp_name.lower() == 'employee name'):
+                logger.info(f"Skipping invalid name: '{emp_name}'")
                 continue
             
+            # Check for duplicates
+            if emp_name in seen_employees:
+                logger.info(f"Skipping duplicate employee: {emp_name}")
+                continue
+                
             seen_employees.add(emp_name)
+            
+            # Extract employee info with safe handling of empty cells
+            person_id = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) and str(row.iloc[1]).strip() != 'nan' else ''
+            department = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) and str(row.iloc[2]).strip() != 'nan' else ''
+            team_manager = str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) and str(row.iloc[3]).strip() != 'nan' else ''
+            shift_timings = str(row.iloc[4]).strip() if pd.notna(row.iloc[4]) and str(row.iloc[4]).strip() != 'nan' else ''
             
             employee_info = {
                 'name': emp_name,
-                'person_id': str(row.iloc[1]) if pd.notna(row.iloc[1]) else '',
-                'department': str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else '',
-                'team_manager': str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) else '',
-                'shift_timings': str(row.iloc[4]).strip() if pd.notna(row.iloc[4]) else '',
+                'person_id': person_id,
+                'department': department,
+                'team_manager': team_manager,
+                'shift_timings': shift_timings,
                 'month': sheet_name,
                 'daily_status': {}
             }
             
-            # Extract daily status
+            # Enhanced debug for Lokesh's extracted info
+            if 'lokesh' in emp_name.lower():
+                logger.info(f"LOKESH - Extracted info:")
+                logger.info(f"  Name: '{employee_info['name']}'")
+                logger.info(f"  Person ID: '{employee_info['person_id']}'")
+                logger.info(f"  Department: '{employee_info['department']}'")
+                logger.info(f"  Team Manager: '{employee_info['team_manager']}'")
+                logger.info(f"  Shift Timings: '{employee_info['shift_timings']}'")
+            
+            # Extract daily status with enhanced debugging
             status_count = 0
             for col_idx, date_col in enumerate(date_columns):
                 if col_idx + 5 < len(row):
                     status = row.iloc[col_idx + 5]
-                    if pd.notna(status) and str(status).strip() != '':
+                    if pd.notna(status) and str(status).strip() != '' and str(status).strip() != 'nan':
                         clean_status = str(status).strip()
                         if clean_status:
                             employee_info['daily_status'][str(date_col)] = clean_status
                             status_count += 1
                             
-                            # Special debug for Lokesh
-                            if 'lokesh' in emp_name.lower() and status_count <= 5:
-                                logger.info(f"LOKESH DEBUG - Date: {date_col}, Status: '{clean_status}'")
+                            # Enhanced debug for Lokesh
+                            if 'lokesh' in emp_name.lower() and status_count <= 10:
+                                logger.info(f"LOKESH - Date col {col_idx}: {date_col} = '{clean_status}'")
             
             if 'lokesh' in emp_name.lower():
-                logger.info(f"LOKESH DEBUG - Total status entries: {status_count}")
+                logger.info(f"LOKESH - Final status count: {status_count}")
+                logger.info(f"LOKESH - Sample statuses: {dict(list(employee_info['daily_status'].items())[:10])}")
+                logger.info(f"=== END LOKESH DEBUG ===")
             
-            logger.info(f"Employee: {emp_name}, Status entries: {status_count}")
+            logger.info(f"Added employee: {emp_name}, Status entries: {status_count}")
+            logger.info(f"  Manager: '{employee_info['team_manager']}', Dept: '{employee_info['department']}'")
             
             if employee_info['name']:
                 employee_data.append(employee_info)
         
-        logger.info(f"Processed {len(employee_data)} unique employees from {sheet_name}")
+        logger.info(f"Final result: {len(employee_data)} unique employees from {sheet_name}")
+        for emp in employee_data:
+            logger.info(f"  - {emp['name']}: Manager='{emp['team_manager']}', Status entries={len(emp['daily_status'])}")
         
         return {
             'sheet_name': sheet_name,
@@ -235,10 +276,13 @@ def calculate_employee_stats(employee, date_columns):
                 stats['wfh_days'] += 1
             elif status_upper in ['SL', 'SICK LEAVE']:
                 stats['sick_leave_days'] += 1
-            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:
+            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:  # Added PL here
                 stats['planned_leave_days'] += 1
             elif status_upper in ['INDIA HOLIDAY', 'HOLIDAY']:
                 stats['holiday_days'] += 1
+            else:
+                # Log unknown statuses for debugging
+                logger.info(f"Unknown status for {employee['name']}: '{status}' (upper: '{status_upper}')")
     
     # Calculate total leave days for backward compatibility
     stats['leave_days'] = stats['sick_leave_days'] + stats['planned_leave_days']
@@ -283,7 +327,7 @@ def calculate_monthly_summary(month_data):
             elif status_upper in ['SL', 'SICK LEAVE']:
                 total_sick_leave += 1
                 total_working += 1
-            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:
+            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:  # Added PL here
                 total_planned_leave += 1
                 total_working += 1
             elif status_upper in ['INDIA HOLIDAY', 'HOLIDAY']:
@@ -315,6 +359,7 @@ def calculate_monthly_summary(month_data):
         summary['overall_planned_leave_percentage'] = 0
         summary['overall_leave_percentage'] = 0
     
+    logger.info(f"Monthly summary: WFO={total_wfo}, WFH={total_wfh}, SL={total_sick_leave}, PL={total_planned_leave}, Holiday={total_holiday}")
     return summary
 
 @app.route('/')
@@ -560,6 +605,11 @@ def health_check():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    """Serve static files"""
+    return send_from_directory('static', filename)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
