@@ -117,17 +117,68 @@ def load_data_from_repo():
         logger.error(f"Error loading data: {e}")
         return None, None, {}
 
+@app.route('/api/raw-excel-debug')
+def raw_excel_debug():
+    """Debug endpoint to see raw Excel structure"""
+    try:
+        file_info = find_latest_excel_file()
+        if not file_info:
+            return jsonify({'status': 'no_file'}), 404
+        
+        filepath = file_info['filepath']
+        
+        # Read Excel file with minimal processing
+        excel_data = pd.read_excel(filepath, sheet_name=None, header=None)
+        
+        debug_data = {}
+        for sheet_name, df in excel_data.items():
+            # Get first 10 rows and 10 columns for debugging
+            sheet_debug = {
+                'shape': df.shape,
+                'raw_data': []
+            }
+            
+            for i in range(min(10, len(df))):
+                row_data = []
+                for j in range(min(10, len(df.columns))):
+                    cell_value = df.iloc[i, j]
+                    row_data.append({
+                        'value': str(cell_value) if pd.notna(cell_value) else 'NaN',
+                        'type': str(type(cell_value).__name__)
+                    })
+                sheet_debug['raw_data'].append({
+                    'row_index': i,
+                    'data': row_data
+                })
+            
+            debug_data[sheet_name] = sheet_debug
+        
+        return jsonify({
+            'status': 'success',
+            'file_info': file_info,
+            'excel_debug': debug_data
+        })
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 def process_monthly_sheet(df, sheet_name):
     """Process a single monthly sheet and extract relevant data"""
     try:
         if df.empty or len(df) < 3:
             return None
         
-        logger.info(f"Processing sheet: {sheet_name}")
+        logger.info(f"=== PROCESSING SHEET: {sheet_name} ===")
         logger.info(f"Sheet shape: {df.shape}")
-        logger.info(f"First few rows preview:")
-        for i in range(min(5, len(df))):
-            logger.info(f"Row {i}: {list(df.iloc[i])[:8]}")  # First 8 columns
+        
+        # Print the first 10 rows to understand structure
+        logger.info("First 10 rows of the sheet:")
+        for i in range(min(10, len(df))):
+            row_data = []
+            for j in range(min(8, len(df.columns))):
+                cell_value = df.iloc[i, j]
+                row_data.append(str(cell_value) if pd.notna(cell_value) else 'NaN')
+            logger.info(f"Row {i}: {row_data}")
         
         employee_data = []
         date_columns = []
@@ -137,108 +188,109 @@ def process_monthly_sheet(df, sheet_name):
             if col_idx >= 5:
                 date_columns.append(str(col_name))
         
-        logger.info(f"Found {len(date_columns)} date columns")
-        logger.info(f"Column headers: {list(df.columns)[:8]}")  # First 8 column headers
+        logger.info(f"Found {len(date_columns)} date columns: {date_columns[:5]}...")
         
+        # FIXED: Use sheet-specific seen_employees to avoid cross-sheet conflicts
         seen_employees = set()
         
-        # Process each employee row - Employee data starts from Row 3 (index 2)
-        for idx, row in df.iterrows():
-            # Skip rows 0 and 1 (headers), start processing from row 2 (which is row 3 in Excel)
-            if idx < 2:
-                logger.info(f"Skipping header row {idx}: {row.iloc[0] if len(row) > 0 else 'empty'}")
-                continue
+        # Process ALL rows starting from index 2 (row 3 in Excel)
+        for idx in range(2, len(df)):
+            try:
+                row = df.iloc[idx]
                 
-            emp_name_raw = row.iloc[0]
-            if pd.isna(emp_name_raw):
-                logger.info(f"Row {idx}: Skipping - empty name")
-                continue
+                # Get employee name from first column
+                emp_name_raw = row.iloc[0]
+                if pd.isna(emp_name_raw):
+                    logger.info(f"Row {idx}: Skipping - empty name")
+                    continue
+                    
+                emp_name = str(emp_name_raw).strip()
                 
-            emp_name = str(emp_name_raw).strip()
-            
-            # Enhanced debug for all employees to understand structure
-            logger.info(f"Processing row {idx} (Excel row {idx+1}): {emp_name}")
-            logger.info(f"  Raw data: {list(row)[:8]}")  # First 8 columns
-            
-            # Enhanced debug for Lokesh specifically
-            if 'lokesh' in emp_name.lower():
-                logger.info(f"=== LOKESH DETAILED DEBUG ===")
-                logger.info(f"LOKESH - Row {idx} (Excel row {idx+1})")
-                logger.info(f"LOKESH - Column 0 (Name): '{row.iloc[0]}'")
-                logger.info(f"LOKESH - Column 1 (Person ID): '{row.iloc[1]}'")
-                logger.info(f"LOKESH - Column 2 (Department): '{row.iloc[2]}'")
-                logger.info(f"LOKESH - Column 3 (Team Manager): '{row.iloc[3]}'")
-                logger.info(f"LOKESH - Column 4 (Shift Timings): '{row.iloc[4]}'")
-                logger.info(f"LOKESH - Full row length: {len(row)}")
-            
-            # Skip if empty name or header row
-            if (not emp_name or 
-                emp_name == '' or 
-                emp_name.lower() == 'employee name'):
-                logger.info(f"Skipping invalid name: '{emp_name}'")
-                continue
-            
-            # Check for duplicates
-            if emp_name in seen_employees:
-                logger.info(f"Skipping duplicate employee: {emp_name}")
-                continue
+                # Enhanced debug for ALL employees
+                logger.info(f"\n--- PROCESSING ROW {idx} (Excel row {idx+1}) ---")
+                logger.info(f"Employee Name: '{emp_name}'")
+                logger.info(f"Person ID: '{row.iloc[1] if pd.notna(row.iloc[1]) else 'NaN'}'")
+                logger.info(f"Department: '{row.iloc[2] if pd.notna(row.iloc[2]) else 'NaN'}'")
+                logger.info(f"Team Manager: '{row.iloc[3] if pd.notna(row.iloc[3]) else 'NaN'}'")
+                logger.info(f"Shift Timings: '{row.iloc[4] if pd.notna(row.iloc[4]) else 'NaN'}'")
                 
-            seen_employees.add(emp_name)
-            
-            # Extract employee info with safe handling of empty cells
-            person_id = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) and str(row.iloc[1]).strip() != 'nan' else ''
-            department = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) and str(row.iloc[2]).strip() != 'nan' else ''
-            team_manager = str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) and str(row.iloc[3]).strip() != 'nan' else ''
-            shift_timings = str(row.iloc[4]).strip() if pd.notna(row.iloc[4]) and str(row.iloc[4]).strip() != 'nan' else ''
-            
-            employee_info = {
-                'name': emp_name,
-                'person_id': person_id,
-                'department': department,
-                'team_manager': team_manager,
-                'shift_timings': shift_timings,
-                'month': sheet_name,
-                'daily_status': {}
-            }
-            
-            # Enhanced debug for Lokesh's extracted info
-            if 'lokesh' in emp_name.lower():
-                logger.info(f"LOKESH - Extracted info:")
-                logger.info(f"  Name: '{employee_info['name']}'")
-                logger.info(f"  Person ID: '{employee_info['person_id']}'")
-                logger.info(f"  Department: '{employee_info['department']}'")
-                logger.info(f"  Team Manager: '{employee_info['team_manager']}'")
-                logger.info(f"  Shift Timings: '{employee_info['shift_timings']}'")
-            
-            # Extract daily status with enhanced debugging
-            status_count = 0
-            for col_idx, date_col in enumerate(date_columns):
-                if col_idx + 5 < len(row):
-                    status = row.iloc[col_idx + 5]
-                    if pd.notna(status) and str(status).strip() != '' and str(status).strip() != 'nan':
-                        clean_status = str(status).strip()
-                        if clean_status:
-                            employee_info['daily_status'][str(date_col)] = clean_status
-                            status_count += 1
-                            
-                            # Enhanced debug for Lokesh
-                            if 'lokesh' in emp_name.lower() and status_count <= 10:
-                                logger.info(f"LOKESH - Date col {col_idx}: {date_col} = '{clean_status}'")
-            
-            if 'lokesh' in emp_name.lower():
-                logger.info(f"LOKESH - Final status count: {status_count}")
-                logger.info(f"LOKESH - Sample statuses: {dict(list(employee_info['daily_status'].items())[:10])}")
-                logger.info(f"=== END LOKESH DEBUG ===")
-            
-            logger.info(f"Added employee: {emp_name}, Status entries: {status_count}")
-            logger.info(f"  Manager: '{employee_info['team_manager']}', Dept: '{employee_info['department']}'")
-            
-            if employee_info['name']:
-                employee_data.append(employee_info)
+                # FIXED: More lenient name validation
+                if (not emp_name or 
+                    emp_name == '' or 
+                    emp_name.lower() == 'employee name' or
+                    emp_name.lower() == 'nan' or
+                    len(emp_name.strip()) == 0):
+                    logger.info(f"Skipping invalid name: '{emp_name}'")
+                    continue
+                
+                # FIXED: Check for duplicates within this sheet only
+                if emp_name in seen_employees:
+                    logger.info(f"Skipping duplicate employee in this sheet: {emp_name}")
+                    continue
+                    
+                seen_employees.add(emp_name)
+                
+                # Extract employee info with safe handling
+                def safe_extract(col_idx):
+                    if col_idx < len(row) and pd.notna(row.iloc[col_idx]):
+                        value = str(row.iloc[col_idx]).strip()
+                        return value if value != 'nan' else ''
+                    return ''
+                
+                employee_info = {
+                    'name': emp_name,
+                    'person_id': safe_extract(1),
+                    'department': safe_extract(2),
+                    'team_manager': safe_extract(3),
+                    'shift_timings': safe_extract(4),
+                    'month': sheet_name,
+                    'daily_status': {}
+                }
+                
+                # Extract daily status
+                status_count = 0
+                logger.info(f"Extracting daily statuses for {emp_name}:")
+                
+                for col_idx, date_col in enumerate(date_columns):
+                    data_col_idx = col_idx + 5  # Date columns start at index 5
+                    if data_col_idx < len(row):
+                        status = row.iloc[data_col_idx]
+                        if pd.notna(status):
+                            clean_status = str(status).strip()
+                            if clean_status and clean_status != 'nan' and clean_status != '':
+                                employee_info['daily_status'][str(date_col)] = clean_status
+                                status_count += 1
+                                
+                                # Log first 10 statuses for debugging
+                                if status_count <= 10:
+                                    logger.info(f"  {date_col}: '{clean_status}'")
+                
+                logger.info(f"Total statuses for {emp_name}: {status_count}")
+                
+                # FIXED: More lenient acceptance criteria - accept if they have either status data OR basic info
+                if employee_info['name'] and (status_count > 0 or employee_info['department'] or employee_info['person_id']):
+                    employee_data.append(employee_info)
+                    logger.info(f"✅ ADDED: {emp_name} with {status_count} status entries")
+                    
+                    # SPECIAL DEBUG FOR LOKESH
+                    if 'lokesh' in emp_name.lower():
+                        logger.info(f"🔍 LOKESH SPECIAL DEBUG:")
+                        logger.info(f"   Name: '{emp_name}'")
+                        logger.info(f"   Status count: {status_count}")
+                        logger.info(f"   Department: '{employee_info['department']}'")
+                        logger.info(f"   Person ID: '{employee_info['person_id']}'")
+                        logger.info(f"   Sample statuses: {dict(list(employee_info['daily_status'].items())[:3])}")
+                else:
+                    logger.info(f"❌ SKIPPED: {emp_name} - no valid data (status_count={status_count}, dept='{employee_info['department']}', id='{employee_info['person_id']}')")
+                    
+            except Exception as row_error:
+                logger.error(f"Error processing row {idx}: {row_error}")
+                continue
         
-        logger.info(f"Final result: {len(employee_data)} unique employees from {sheet_name}")
+        logger.info(f"\n=== FINAL RESULT FOR {sheet_name} ===")
+        logger.info(f"Total employees processed: {len(employee_data)}")
         for emp in employee_data:
-            logger.info(f"  - {emp['name']}: Manager='{emp['team_manager']}', Status entries={len(emp['daily_status'])}")
+            logger.info(f"  - {emp['name']}: {len(emp['daily_status'])} status entries")
         
         return {
             'sheet_name': sheet_name,
@@ -383,25 +435,37 @@ def index():
         
         month_data = monthly_data[current_month]
         
-        # Filter out invalid employees and remove duplicates
+        # FIXED: Filter out invalid employees and remove duplicates more carefully
         valid_employees = []
         seen_names = set()
         
         for employee in month_data['employees']:
             emp_name = employee['name'].strip()
             
+            # FIXED: More careful validation
             if (not emp_name or 
                 emp_name.lower() == 'employee name' or
-                emp_name in seen_names):
+                len(emp_name.strip()) == 0):
+                logger.info(f"Filtering out invalid employee name: '{emp_name}'")
                 continue
             
-            seen_names.add(emp_name)
+            # FIXED: Case-insensitive duplicate check
+            emp_name_lower = emp_name.lower()
+            if emp_name_lower in seen_names:
+                logger.info(f"Filtering out duplicate employee: '{emp_name}'")
+                continue
+            
+            seen_names.add(emp_name_lower)
             
             # Calculate stats
             stats = calculate_employee_stats(employee, month_data['date_columns'])
             employee_with_stats = employee.copy()
             employee_with_stats['stats'] = stats
             valid_employees.append(employee_with_stats)
+            
+            # SPECIAL LOG FOR LOKESH
+            if 'lokesh' in emp_name.lower():
+                logger.info(f"🔍 LOKESH IN FINAL LIST: {emp_name} with {len(employee['daily_status'])} statuses")
         
         # Calculate monthly summary
         monthly_summary = calculate_monthly_summary(month_data)
@@ -410,6 +474,11 @@ def index():
         current_month_index = available_months.index(current_month) if current_month in available_months else len(available_months) - 1
         
         logger.info(f"Displaying {len(valid_employees)} unique employees for month: {current_month}")
+        
+        # DEBUG: Log all employee names in final list
+        logger.info("Final employee list:")
+        for emp in valid_employees:
+            logger.info(f"  - {emp['name']}")
         
         return render_template('minimal_dashboard.html',
                              employees=valid_employees,
@@ -445,17 +514,18 @@ def calendar_view():
         
         month_data = monthly_data[current_month]
         
-        # Filter out duplicate employees
+        # FIXED: Filter out duplicate employees with case-insensitive checking
         unique_employees = []
         seen_names = set()
         
         for employee in month_data['employees']:
             emp_name = employee['name'].strip()
+            emp_name_lower = emp_name.lower()
             
             if (emp_name and 
                 emp_name.lower() != 'employee name' and
-                emp_name not in seen_names):
-                seen_names.add(emp_name)
+                emp_name_lower not in seen_names):
+                seen_names.add(emp_name_lower)
                 unique_employees.append(employee)
         
         # Update month_data with unique employees
@@ -596,7 +666,7 @@ def health_check():
             'file_info': file_info,
             'data_info': metadata if combined_data else None,
             'employee_debug': employee_debug,
-            'version': '2.1.0-clean',
+            'version': '2.1.1-lokesh-fix',
             'data_folder': DATA_FOLDER
         })
     except Exception as e:
@@ -613,6 +683,6 @@ def static_files(filename):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Starting WFO Tracker v2.1 on port {port}")
+    logger.info(f"Starting WFO Tracker v2.1.1-lokesh-fix on port {port}")
     logger.info(f"Data folder: {DATA_FOLDER}")
     app.run(host='0.0.0.0', port=port, debug=False)
