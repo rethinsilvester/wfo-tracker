@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WFO Tracker - Upload Data</title>
+    <title>WFO Tracker - Modern Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         :root {
             --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -13,93 +14,74 @@
             --info-color: #17a2b8;
             --warning-color: #ffc107;
             --danger-color: #dc3545;
+            --dark-color: #343a40;
             --light-bg: #f8f9fa;
         }
 
         body {
-            background: var(--primary-gradient);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
+            background-color: var(--light-bg);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        .upload-container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 3rem;
-            margin: 2rem auto;
-            max-width: 600px;
-        }
-
-        .upload-header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-
-        .upload-header h1 {
-            color: #343a40;
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
-
-        .upload-header p {
-            color: #6c757d;
-            font-size: 1.1rem;
-        }
-
-        .upload-zone {
-            border: 3px dashed #dee2e6;
-            border-radius: 15px;
-            padding: 3rem 2rem;
-            text-align: center;
-            transition: all 0.3s ease;
+        .dashboard-header {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 2rem 0;
             margin-bottom: 2rem;
-            position: relative;
-            overflow: hidden;
+            border-radius: 0 0 20px 20px;
         }
 
-        .upload-zone:hover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
-        }
-
-        .upload-zone.dragover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.1);
-            transform: scale(1.02);
-        }
-
-        .upload-icon {
-            font-size: 4rem;
-            color: #667eea;
-            margin-bottom: 1rem;
-        }
-
-        .upload-text {
-            font-size: 1.2rem;
-            color: #343a40;
-            margin-bottom: 1rem;
-        }
-
-        .upload-subtext {
-            color: #6c757d;
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
             margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: none;
         }
 
-        .file-input {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            opacity: 0;
-            cursor: pointer;
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.95rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: 1rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
         }
 
         .btn-modern {
-            padding: 0.75rem 2rem;
+            padding: 0.75rem 1.5rem;
             border-radius: 10px;
             font-weight: 600;
             text-decoration: none;
@@ -108,7 +90,6 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            font-size: 1rem;
         }
 
         .btn-modern:hover {
@@ -121,120 +102,133 @@
             color: white;
         }
 
-        .btn-secondary-modern {
-            background: #6c757d;
+        .btn-success-modern {
+            background: var(--success-color);
             color: white;
         }
 
-        .file-info {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
+        .btn-info-modern {
+            background: var(--info-color);
+            color: white;
+        }
+
+        .metadata-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .nav-tabs-modern {
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 2rem;
+        }
+
+        .nav-tabs-modern .nav-link {
+            border: none;
+            border-radius: 10px 10px 0 0;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            color: #6c757d;
+            background: transparent;
+        }
+
+        .nav-tabs-modern .nav-link.active {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .loading-spinner {
             display: none;
-        }
-
-        .progress-container {
-            margin-bottom: 1.5rem;
-            display: none;
-        }
-
-        .progress {
-            height: 10px;
-            border-radius: 5px;
-            background: #e9ecef;
-        }
-
-        .progress-bar {
-            border-radius: 5px;
-            transition: width 0.3s ease;
+            text-align: center;
+            padding: 2rem;
         }
 
         .alert-modern {
             border-radius: 10px;
             border: none;
             padding: 1rem 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .features-list {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 2rem;
-            margin-top: 2rem;
-        }
-
-        .features-list h5 {
-            color: #343a40;
             margin-bottom: 1rem;
         }
 
-        .features-list ul {
-            list-style: none;
-            padding: 0;
+        .quick-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
         }
 
-        .features-list li {
-            padding: 0.5rem 0;
-            color: #6c757d;
+        .employee-summary {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
         }
 
-        .features-list li i {
-            color: var(--success-color);
-            margin-right: 0.5rem;
+        .status-badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 0.2rem;
         }
 
-        .back-link {
-            position: absolute;
-            top: 2rem;
-            left: 2rem;
-            color: white;
-            text-decoration: none;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-        }
-
-        .back-link:hover {
-            color: #f8f9fa;
-            transform: translateX(-5px);
-        }
+        .wfo-badge { background: #d4edda; color: #155724; }
+        .wfh-badge { background: #cce5ff; color: #004085; }
+        .leave-badge { background: #f8d7da; color: #721c24; }
+        .holiday-badge { background: #e2e3e5; color: #383d41; }
 
         @media (max-width: 768px) {
-            .upload-container {
-                margin: 1rem;
-                padding: 2rem;
+            .dashboard-header {
+                padding: 1rem 0;
             }
             
-            .upload-zone {
-                padding: 2rem 1rem;
+            .stat-value {
+                font-size: 2rem;
             }
             
-            .upload-icon {
-                font-size: 3rem;
+            .chart-container {
+                padding: 1rem;
             }
             
-            .back-link {
-                position: static;
-                display: block;
-                margin-bottom: 1rem;
-                text-align: center;
-                color: #343a40;
+            .action-buttons {
+                flex-direction: column;
             }
         }
     </style>
 </head>
 <body>
-    <a href="{{ url_for('index') }}" class="back-link">
-        <i class="fas fa-arrow-left"></i> Back to Dashboard
-    </a>
-
-    <div class="container">
-        <div class="upload-container">
-            <div class="upload-header">
-                <h1><i class="fas fa-cloud-upload-alt"></i> Upload WFO Data</h1>
-                <p>Upload your Excel file containing employee work-from-office data</p>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h1 class="mb-0">
+                            <i class="fas fa-chart-line"></i> WFO Tracker Dashboard
+                        </h1>
+                        <p class="mb-0 mt-2 opacity-75">
+                            Real-time Work From Office Analytics & Insights
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="action-buttons">
+                            <button onclick="refreshData()" class="btn btn-success-modern">
+                                <i class="fas fa-sync"></i> Refresh Data
+                            </button>
+                            <a href="/api/file-info" class="btn btn-info-modern" target="_blank">
+                                <i class="fas fa-info-circle"></i> File Info
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
+        </div>
 
+        <div class="container">
             <!-- Flash Messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -248,204 +242,248 @@
                 {% endif %}
             {% endwith %}
 
-            <form id="uploadForm" method="POST" enctype="multipart/form-data">
-                <div class="upload-zone" id="uploadZone">
-                    <input type="file" name="file" id="fileInput" class="file-input" accept=".xlsx,.xls" required>
-                    <div class="upload-content">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <div class="upload-text">Click to select or drag & drop your Excel file</div>
-                        <div class="upload-subtext">
-                            Supported formats: .xlsx, .xls (Max size: 32MB)
+            <!-- Quick Stats -->
+            {% if summary_stats %}
+            <div class="quick-stats-grid">
+                <div class="stat-card text-center">
+                    <div class="stat-value text-success">
+                        {{ summary_stats.wfo_percentage }}%
+                    </div>
+                    <div class="stat-label">
+                        <i class="fas fa-building"></i> WFO Rate
+                    </div>
+                </div>
+                <div class="stat-card text-center">
+                    <div class="stat-value text-info">
+                        {{ summary_stats.wfh_percentage }}%
+                    </div>
+                    <div class="stat-label">
+                        <i class="fas fa-home"></i> WFH Rate
+                    </div>
+                </div>
+                <div class="stat-card text-center">
+                    <div class="stat-value text-warning">
+                        {{ summary_stats.leave_percentage }}%
+                    </div>
+                    <div class="stat-label">
+                        <i class="fas fa-user-times"></i> Leave Rate
+                    </div>
+                </div>
+                <div class="stat-card text-center">
+                    <div class="stat-value text-primary">
+                        {{ summary_stats.total_days }}
+                    </div>
+                    <div class="stat-label">
+                        <i class="fas fa-calendar-alt"></i> Total Days
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Master Data Info -->
+            {% if metadata %}
+            <div class="metadata-card">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="mb-3">
+                            <i class="fas fa-database"></i> Master Data Information
+                        </h4>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Source File:</strong><br>
+                                <span class="text-muted">{{ metadata.original_filename }}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Total Sheets:</strong><br>
+                                <span class="text-muted">{{ metadata.total_sheets }}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Total Employees:</strong><br>
+                                <span class="text-muted">{{ metadata.total_employees }}</span>
+                            </div>
+                        </div>
+                        {% if metadata.upload_timestamp %}
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i> Last updated: 
+                                {{ metadata.upload_timestamp.split('T')[0] }} at 
+                                {{ metadata.upload_timestamp.split('T')[1].split('.')[0] }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="action-buttons">
+                            <a href="{{ url_for('calendar_view') }}" class="btn btn-primary-modern">
+                                <i class="fas fa-calendar"></i> Calendar View
+                            </a>
+                            <a href="{{ url_for('reports_view') }}" class="btn btn-info-modern">
+                                <i class="fas fa-chart-bar"></i> Reports
+                            </a>
                         </div>
                     </div>
                 </div>
+            </div>
+            {% endif %}
 
-                <div class="file-info" id="fileInfo">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-file-excel text-success me-2"></i>
-                        <div>
-                            <div class="fw-bold" id="fileName"></div>
-                            <div class="text-muted" id="fileSize"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="progress-container" id="progressContainer">
-                    <div class="progress">
-                        <div class="progress-bar bg-success" role="progressbar" id="progressBar" style="width: 0%"></div>
-                    </div>
-                    <div class="text-center mt-2">
-                        <small class="text-muted" id="progressText">Uploading...</small>
-                    </div>
-                </div>
-
-                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-                    <button type="submit" class="btn btn-primary-modern" id="uploadBtn">
-                        <i class="fas fa-upload"></i> Upload File
+            <!-- Navigation Tabs -->
+            <ul class="nav nav-tabs nav-tabs-modern" id="dashboardTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab">
+                        <i class="fas fa-chart-pie"></i> Analytics
                     </button>
-                    <a href="{{ url_for('index') }}" class="btn btn-secondary-modern">
-                        <i class="fas fa-times"></i> Cancel
-                    </a>
-                </div>
-            </form>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="employees-tab" data-bs-toggle="tab" data-bs-target="#employees" type="button" role="tab">
+                        <i class="fas fa-users"></i> Employees
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="departments-tab" data-bs-toggle="tab" data-bs-target="#departments" type="button" role="tab">
+                        <i class="fas fa-building"></i> Departments
+                    </button>
+                </li>
+            </ul>
 
-            <div class="features-list">
-                <h5><i class="fas fa-star"></i> What's New in This Version</h5>
-                <ul>
-                    <li><i class="fas fa-check"></i> Multi-sheet Excel processing</li>
-                    <li><i class="fas fa-check"></i> Interactive charts and visualizations</li>
-                    <li><i class="fas fa-check"></i> Real-time analytics dashboard</li>
-                    <li><i class="fas fa-check"></i> Employee and department insights</li>
-                    <li><i class="fas fa-check"></i> Monthly trend analysis</li>
-                    <li><i class="fas fa-check"></i> Mobile-responsive design</li>
-                    <li><i class="fas fa-check"></i> Export data to CSV</li>
-                    <li><i class="fas fa-check"></i> Calendar view for attendance</li>
-                </ul>
+            <!-- Tab Content -->
+            <div class="tab-content" id="dashboardTabsContent">
+                <!-- Analytics Tab -->
+                <div class="tab-pane fade show active" id="analytics" role="tabpanel">
+                    {% if plots %}
+                    <div class="row">
+                        {% for plot_title, plot_html in plots %}
+                        <div class="col-lg-6 mb-4">
+                            <div class="chart-container">
+                                <h5 class="chart-title">{{ plot_title }}</h5>
+                                {{ plot_html|safe }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Employees Tab -->
+                <div class="tab-pane fade" id="employees" role="tabpanel">
+                    {% if analytics and analytics.employee_stats %}
+                    <div class="row">
+                        {% for employee, stats in analytics.employee_stats.items() %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="employee-summary">
+                                <h6 class="mb-2">{{ employee }}</h6>
+                                <div class="mb-2">
+                                    <span class="status-badge wfo-badge">WFO: {{ stats.wfo_percentage }}%</span>
+                                    <span class="status-badge wfh-badge">WFH: {{ stats.wfh_percentage }}%</span>
+                                </div>
+                                <small class="text-muted">Total Days: {{ stats.total_days }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Departments Tab -->
+                <div class="tab-pane fade" id="departments" role="tabpanel">
+                    {% if analytics and analytics.department_stats %}
+                    <div class="row">
+                        {% for department, stats in analytics.department_stats.items() %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="stat-card">
+                                <h5 class="mb-3">{{ department }}</h5>
+                                <div class="mb-2">
+                                    <span class="status-badge wfo-badge">WFO: {{ stats.wfo_percentage }}%</span>
+                                    <span class="status-badge wfh-badge">WFH: {{ stats.wfh_percentage }}%</span>
+                                </div>
+                                <small class="text-muted">Total Days: {{ stats.total_days }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Refreshing data...</p>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const uploadZone = document.getElementById('uploadZone');
-            const fileInput = document.getElementById('fileInput');
-            const fileInfo = document.getElementById('fileInfo');
-            const fileName = document.getElementById('fileName');
-            const fileSize = document.getElementById('fileSize');
-            const uploadForm = document.getElementById('uploadForm');
-            const uploadBtn = document.getElementById('uploadBtn');
-            const progressContainer = document.getElementById('progressContainer');
-            const progressBar = document.getElementById('progressBar');
-            const progressText = document.getElementById('progressText');
-
-            // Drag and drop functionality
-            uploadZone.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                uploadZone.classList.add('dragover');
-            });
-
-            uploadZone.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                uploadZone.classList.remove('dragover');
-            });
-
-            uploadZone.addEventListener('drop', function(e) {
-                e.preventDefault();
-                uploadZone.classList.remove('dragover');
-                
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    fileInput.files = files;
-                    handleFileSelection(files[0]);
-                }
-            });
-
-            // File input change handler
-            fileInput.addEventListener('change', function(e) {
-                if (e.target.files.length > 0) {
-                    handleFileSelection(e.target.files[0]);
-                }
-            });
-
-            // Handle file selection
-            function handleFileSelection(file) {
-                const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
-                const maxSize = 32 * 1024 * 1024; // 32MB
-
-                if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
-                    alert('Please select a valid Excel file (.xlsx or .xls)');
-                    fileInput.value = '';
-                    return;
-                }
-
-                if (file.size > maxSize) {
-                    alert('File size must be less than 32MB');
-                    fileInput.value = '';
-                    return;
-                }
-
-                // Show file info
-                fileName.textContent = file.name;
-                fileSize.textContent = formatFileSize(file.size);
-                fileInfo.style.display = 'block';
-
-                // Update upload zone
-                uploadZone.style.borderColor = '#28a745';
-                uploadZone.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
-                uploadZone.querySelector('.upload-text').textContent = 'File selected successfully!';
-                uploadZone.querySelector('.upload-subtext').textContent = 'Click "Upload File" to proceed';
-                uploadZone.querySelector('.upload-icon').className = 'fas fa-check-circle upload-icon';
-                uploadZone.querySelector('.upload-icon').style.color = '#28a745';
-            }
-
-            // Format file size
-            function formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
-
-            // Form submission with progress
-            uploadForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                if (!fileInput.files.length) {
-                    alert('Please select a file first');
-                    return;
-                }
-
-                const formData = new FormData(uploadForm);
-                
-                // Show progress
-                uploadBtn.disabled = true;
-                uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-                progressContainer.style.display = 'block';
-                
-                // Simulate progress (since we can't track real progress easily)
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += Math.random() * 30;
-                    if (progress >= 90) {
-                        clearInterval(progressInterval);
-                        progress = 90;
-                    }
-                    progressBar.style.width = progress + '%';
-                    progressText.textContent = `Uploading... ${Math.round(progress)}%`;
-                }, 200);
-
-                // Submit form
-                fetch(uploadForm.action, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    clearInterval(progressInterval);
-                    progressBar.style.width = '100%';
-                    progressText.textContent = 'Upload complete!';
-                    
-                    if (response.ok) {
+        function refreshData() {
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.style.display = 'block';
+            
+            fetch('/api/refresh')
+                .then(response => response.json())
+                .then(data => {
+                    spinner.style.display = 'none';
+                    if (data.status === 'success') {
+                        // Show success message with file info
+                        const fileInfo = data.source_file ? ` (${data.source_file})` : '';
+                        showAlert(`Data refreshed successfully${fileInfo}! Last modified: ${data.last_modified}`, 'success');
+                        
+                        // Reload the page to show updated data
                         setTimeout(() => {
-                            window.location.href = response.url;
-                        }, 1000);
+                            window.location.reload();
+                        }, 2000);
                     } else {
-                        throw new Error('Upload failed');
+                        showAlert('No data file found in repository. Please add your Excel file to the data folder.', 'warning');
                     }
                 })
                 .catch(error => {
-                    clearInterval(progressInterval);
-                    console.error('Upload error:', error);
-                    
-                    // Reset form
-                    uploadBtn.disabled = false;
-                    uploadBtn.innerHTML = '<i class="fas fa-upload"></i> Upload File';
-                    progressContainer.style.display = 'none';
-                    progressBar.style.width = '0%';
-                    
-                    alert('Upload failed. Please try again.');
+                    spinner.style.display = 'none';
+                    console.error('Error:', error);
+                    showAlert('Error refreshing data', 'danger');
                 });
+        }
+
+        function showAlert(message, type) {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-modern alert-dismissible fade show" role="alert">
+                    <i class="fas fa-${ type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'times-circle' }"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            document.querySelector('.container').insertAdjacentHTML('afterbegin', alertHtml);
+            
+            // Auto-remove alert after 5 seconds
+            setTimeout(() => {
+                const alert = document.querySelector('.alert');
+                if (alert) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+
+        // Auto-refresh data every 5 minutes
+        setInterval(function() {
+            fetch('/api/refresh')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Background refresh:', data.status);
+                    if (data.status === 'success') {
+                        console.log('Data available:', data.source_file);
+                    }
+                })
+                .catch(error => {
+                    console.error('Background refresh error:', error);
+                });
+        }, 300000); // 5 minutes
+
+        // Initialize tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            const tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
             });
         });
     </script>

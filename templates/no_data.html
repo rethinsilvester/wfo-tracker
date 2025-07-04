@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WFO Tracker - No Data Available</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --light-bg: #f8f9fa;
+        }
+
+        body {
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .no-data-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 3rem;
+            text-align: center;
+            max-width: 600px;
+            margin: 2rem;
+        }
+
+        .no-data-icon {
+            font-size: 5rem;
+            color: #667eea;
+            margin-bottom: 2rem;
+        }
+
+        .no-data-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #343a40;
+            margin-bottom: 1rem;
+        }
+
+        .no-data-message {
+            color: #6c757d;
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .instruction-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+            text-align: left;
+        }
+
+        .instruction-step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+
+        .step-number {
+            background: var(--primary-gradient);
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-weight: 600;
+            color: #343a40;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-description {
+            color: #6c757d;
+            font-size: 0.95rem;
+        }
+
+        .btn-modern {
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem;
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            text-decoration: none;
+        }
+
+        .btn-primary-modern {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .btn-outline-modern {
+            border: 2px solid #667eea;
+            color: #667eea;
+            background: transparent;
+        }
+
+        .btn-outline-modern:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .repo-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        .code-snippet {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 0.75rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="no-data-container">
+        <i class="fas fa-database no-data-icon"></i>
+        <h1 class="no-data-title">No Data Available</h1>
+        <p class="no-data-message">
+            The WFO Tracker is looking for an Excel file in the repository but couldn't find one. 
+            Please add your WFO data file to get started with analytics and insights.
+        </p>
+
+        <div class="instruction-card">
+            <h4 class="mb-3">
+                <i class="fas fa-upload"></i> How to Add Your Data File
+            </h4>
+
+            <div class="instruction-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <div class="step-title">Prepare Your Excel File</div>
+                    <div class="step-description">
+                        Ensure your Excel file contains monthly sheets with employee attendance data 
+                        (WFO, WFH, SL, India Holiday, etc.)
+                    </div>
+                </div>
+            </div>
+
+            <div class="instruction-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <div class="step-title">Create Data Folder</div>
+                    <div class="step-description">
+                        Create a folder named <code class="code-snippet">data</code> in your repository root directory
+                    </div>
+                </div>
+            </div>
+
+            <div class="instruction-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <div class="step-title">Upload Excel File</div>
+                    <div class="step-description">
+                        Place your Excel file (.xlsx) in the <code class="code-snippet">data</code> folder
+                    </div>
+                </div>
+            </div>
+
+            <div class="instruction-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <div class="step-title">Deploy to Azure</div>
+                    <div class="step-description">
+                        Commit and push the changes to deploy the updated application with your data
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="repo-info">
+            <h6><i class="fas fa-info-circle"></i> Repository Structure</h6>
+            <p class="mb-1">Your repository should look like this:</p>
+            <div class="code-snippet">
+your-repo/<br>
+├── app.py<br>
+├── requirements.txt<br>
+├── templates/<br>
+├── data/<br>
+│   └── your-wfo-data.xlsx<br>
+└── README.md
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-center flex-wrap">
+            <button onclick="checkForData()" class="btn btn-primary-modern">
+                <i class="fas fa-sync"></i> Check for Data
+            </button>
+            <a href="/health" class="btn btn-outline-modern">
+                <i class="fas fa-heartbeat"></i> System Status
+            </a>
+        </div>
+
+        <div class="mt-4">
+            <small class="text-muted">
+                <i class="fas fa-clock"></i> 
+                The app will automatically detect and load Excel files from the data folder.
+                No manual upload required once the file is in the repository.
+            </small>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function checkForData() {
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+            btn.disabled = true;
+            
+            fetch('/api/refresh')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Data found, redirect to dashboard
+                        window.location.href = '/';
+                    } else {
+                        // Still no data
+                        alert('No data file found yet. Please add your Excel file to the data folder and try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error checking for data. Please try again.');
+                })
+                .finally(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                });
+        }
+
+        // Auto-check for data every 30 seconds
+        setInterval(function() {
+            fetch('/api/file-info')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // File found, redirect to dashboard
+                        window.location.href = '/';
+                    }
+                })
+                .catch(error => {
+                    // Silently fail for auto-check
+                    console.log('Auto-check: No data file found yet');
+                });
+        }, 30000); // Check every 30 seconds
+    </script>
+</body>
+</html>

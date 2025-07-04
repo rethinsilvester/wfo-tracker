@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.graph_objects as go
@@ -9,7 +9,6 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.utils
 from flask import Flask, request, render_template, jsonify, redirect, url_for, flash
-from werkzeug.utils import secure_filename
 import io
 import base64
 from datetime import datetime, timedelta
@@ -17,22 +16,26 @@ import json
 import calendar
 from collections import defaultdict
 import numpy as np
+import logging
+import traceback
+import glob
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'
 
-# Configuration
-UPLOAD_FOLDER = 'uploads'
-MASTER_DATA_FOLDER = 'master_data'
-ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
-MAX_FILE_SIZE = 32 * 1024 * 1024  # 32MB
+# Configuration - files will be read from repository
+DATA_FOLDER = 'data'  # Folder in your repo containing Excel files
+EXCEL_FILE_PATTERN = '*.xlsx'  # Pattern to match Excel files
 
-# Create directories if they don't exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(MASTER_DATA_FOLDER, exist_ok=True)
-
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+# Create data folder if it doesn't exist (for local development)
+os.makedirs(DATA_FOLDER, exist_ok=True)
 
 # WFO Status mapping and colors
 WFO_STATUS_CONFIG = {
@@ -45,55 +48,97 @@ WFO_STATUS_CONFIG = {
     None: {'color': '#f8f9fa', 'label': 'No Data', 'icon': '❓'}
 }
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def find_latest_excel_file():
+    """Find the latest Excel file in the data folder"""
+    try:
+        # Look for Excel files in the data folder
+        excel_files = glob.glob(os.path.join(DATA_FOLDER, EXCEL_FILE_PATTERN))
+        
+        if not excel_files:
+            # Also check in root directory as fallback
+            excel_files = glob.glob(EXCEL_FILE_PATTERN)
+        
+        if not excel_files:
+            logger.warning("No Excel files found in data folder or root directory")
+            return None
+        
+        # Sort by modification time, get the latest
+        latest_file = max(excel_files, key=os.path.getmtime)
+        logger.info(f"Found latest Excel file: {latest_file}")
+        
+        # Get file info
+        file_stats = os.stat(latest_file)
+        file_info = {
+            'filepath': latest_file,
+            'filename': os.path.basename(latest_file),
+            'size': file_stats.st_size,
+            'modified': datetime.fromtimestamp(file_stats.st_mtime).isoformat()
+        }
+        
+        return file_info
+        
+    except Exception as e:
+        logger.error(f"Error finding Excel file: {e}")
+        return None
 
-def load_master_data():
-    """Load and process the latest master data from Excel file"""
-    master_file_path = os.path.join(MASTER_DATA_FOLDER, 'master_data.xlsx')
-    metadata_path = os.path.join(MASTER_DATA_FOLDER, 'metadata.json')
-    
-    if os.path.exists(master_file_path):
-        try:
-            # Read all sheets from the Excel file
-            excel_data = pd.read_excel(master_file_path, sheet_name=None)
-            
-            # Process each sheet and combine data
-            combined_data = []
-            monthly_data = {}
-            
-            for sheet_name, df in excel_data.items():
-                if df.empty:
-                    continue
-                    
-                # Process the sheet data
-                processed_data = process_monthly_sheet(df, sheet_name)
-                if processed_data is not None:
-                    combined_data.append(processed_data)
-                    monthly_data[sheet_name] = processed_data
-            
-            # Load metadata if exists
-            metadata = {}
-            if os.path.exists(metadata_path):
-                with open(metadata_path, 'r') as f:
-                    metadata = json.load(f)
-            
-            return combined_data, monthly_data, metadata
-            
-        except Exception as e:
-            print(f"Error loading master data: {e}")
+def load_data_from_repo():
+    """Load and process data from the repository Excel file"""
+    try:
+        file_info = find_latest_excel_file()
+        
+        if not file_info:
+            logger.warning("No Excel file found in repository")
             return None, None, {}
-    
-    return None, None, {}
+        
+        filepath = file_info['filepath']
+        logger.info(f"Loading data from: {filepath}")
+        
+        # Read all sheets from the Excel file
+        excel_data = pd.read_excel(filepath, sheet_name=None)
+        logger.info(f"Loaded Excel file with sheets: {list(excel_data.keys())}")
+        
+        # Process each sheet and combine data
+        combined_data = []
+        monthly_data = {}
+        
+        for sheet_name, df in excel_data.items():
+            if df.empty:
+                continue
+                
+            # Process the sheet data
+            processed_data = process_monthly_sheet(df, sheet_name)
+            if processed_data is not None:
+                combined_data.append(processed_data)
+                monthly_data[sheet_name] = processed_data
+        
+        # Create metadata
+        metadata = {
+            'source_file': file_info['filename'],
+            'file_path': filepath,
+            'file_size': file_info['size'],
+            'last_modified': file_info['modified'],
+            'total_sheets': len(combined_data),
+            'total_employees': len(set(emp['name'] for sheet in combined_data for emp in sheet['employees'] if emp['name'])) if combined_data else 0,
+            'sheet_names': list(monthly_data.keys()) if monthly_data else [],
+            'loaded_timestamp': datetime.now().isoformat()
+        }
+        
+        logger.info(f"Loaded data for {len(combined_data)} sheets, {metadata['total_employees']} employees")
+        return combined_data, monthly_data, metadata
+        
+    except Exception as e:
+        logger.error(f"Error loading data from repository: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return None, None, {}
 
 def process_monthly_sheet(df, sheet_name):
     """Process a single monthly sheet and extract relevant data"""
     try:
         if df.empty or len(df) < 2:
+            logger.warning(f"Sheet {sheet_name} is empty or too small")
             return None
-            
-        # The first row contains headers, second row contains day names
-        # Employee data starts from the third row
+        
+        logger.info(f"Processing sheet: {sheet_name} with {len(df)} rows and {len(df.columns)} columns")
         
         # Extract employee data (starting from row 2, index 2)
         employee_data = []
@@ -102,22 +147,25 @@ def process_monthly_sheet(df, sheet_name):
         # Find date columns (they start from column 5 onwards)
         for col_idx, col_name in enumerate(df.columns):
             if col_idx >= 5:  # Skip first 5 columns (employee info)
-                date_columns.append(col_name)
+                date_columns.append(str(col_name))
+        
+        logger.info(f"Found {len(date_columns)} date columns in {sheet_name}")
         
         # Process each employee row
+        employee_count = 0
         for idx, row in df.iterrows():
             if idx < 2:  # Skip header rows
                 continue
                 
-            if pd.isna(row.iloc[0]):  # Skip empty rows
+            if pd.isna(row.iloc[0]) or str(row.iloc[0]).strip() == '':  # Skip empty rows
                 continue
                 
             employee_info = {
-                'name': row.iloc[0],
-                'person_id': row.iloc[1],
-                'department': row.iloc[2],
-                'team_manager': row.iloc[3],
-                'shift_timings': row.iloc[4],
+                'name': str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else '',
+                'person_id': str(row.iloc[1]) if pd.notna(row.iloc[1]) else '',
+                'department': str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else '',
+                'team_manager': str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) else '',
+                'shift_timings': str(row.iloc[4]).strip() if pd.notna(row.iloc[4]) else '',
                 'month': sheet_name,
                 'daily_status': {}
             }
@@ -126,11 +174,14 @@ def process_monthly_sheet(df, sheet_name):
             for col_idx, date_col in enumerate(date_columns):
                 if col_idx + 5 < len(row):
                     status = row.iloc[col_idx + 5]
-                    if pd.notna(status) and status != '':
-                        employee_info['daily_status'][date_col] = status
+                    if pd.notna(status) and str(status).strip() != '':
+                        employee_info['daily_status'][str(date_col)] = str(status).strip()
             
-            employee_data.append(employee_info)
+            if employee_info['name']:  # Only add if name exists
+                employee_data.append(employee_info)
+                employee_count += 1
         
+        logger.info(f"Processed sheet {sheet_name}: {employee_count} employees")
         return {
             'sheet_name': sheet_name,
             'employees': employee_data,
@@ -138,46 +189,9 @@ def process_monthly_sheet(df, sheet_name):
         }
         
     except Exception as e:
-        print(f"Error processing sheet {sheet_name}: {e}")
+        logger.error(f"Error processing sheet {sheet_name}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return None
-
-def save_master_data(file_path, filename):
-    """Save uploaded file as master data"""
-    master_file_path = os.path.join(MASTER_DATA_FOLDER, 'master_data.xlsx')
-    metadata_path = os.path.join(MASTER_DATA_FOLDER, 'metadata.json')
-    
-    try:
-        # Copy the uploaded file to master data location
-        import shutil
-        shutil.copy2(file_path, master_file_path)
-        
-        # Process the data to get statistics
-        combined_data, monthly_data, _ = load_master_data()
-        
-        # Calculate statistics
-        total_employees = 0
-        total_sheets = 0
-        if combined_data:
-            total_sheets = len(combined_data)
-            total_employees = len(set(emp['name'] for sheet in combined_data for emp in sheet['employees']))
-        
-        # Save metadata
-        metadata = {
-            'original_filename': filename,
-            'upload_timestamp': datetime.now().isoformat(),
-            'total_sheets': total_sheets,
-            'total_employees': total_employees,
-            'sheet_names': list(monthly_data.keys()) if monthly_data else []
-        }
-        
-        with open(metadata_path, 'w') as f:
-            json.dump(metadata, f, indent=2)
-            
-        return True
-        
-    except Exception as e:
-        print(f"Error saving master data: {e}")
-        return False
 
 def calculate_wfo_analytics(combined_data):
     """Calculate WFO analytics from combined data"""
@@ -241,25 +255,27 @@ def calculate_wfo_analytics(combined_data):
     
     # Calculate department statistics
     for dept, dept_status_counts in department_status_counts.items():
-        dept_total = sum(dept_status_counts.values())
-        if dept_total > 0:
-            analytics['department_stats'][dept] = {
-                'total_days': dept_total,
-                'wfo_percentage': round((dept_status_counts['WFO'] / dept_total) * 100, 1),
-                'wfh_percentage': round((dept_status_counts['WFH'] / dept_total) * 100, 1),
-                'status_distribution': dict(dept_status_counts)
-            }
+        if dept:  # Skip empty department names
+            dept_total = sum(dept_status_counts.values())
+            if dept_total > 0:
+                analytics['department_stats'][dept] = {
+                    'total_days': dept_total,
+                    'wfo_percentage': round((dept_status_counts['WFO'] / dept_total) * 100, 1),
+                    'wfh_percentage': round((dept_status_counts['WFH'] / dept_total) * 100, 1),
+                    'status_distribution': dict(dept_status_counts)
+                }
     
     # Calculate team statistics
     for team_manager, team_status_counts in team_status_counts.items():
-        team_total = sum(team_status_counts.values())
-        if team_total > 0:
-            analytics['team_stats'][team_manager] = {
-                'total_days': team_total,
-                'wfo_percentage': round((team_status_counts['WFO'] / team_total) * 100, 1),
-                'wfh_percentage': round((team_status_counts['WFH'] / team_total) * 100, 1),
-                'status_distribution': dict(team_status_counts)
-            }
+        if team_manager:  # Skip empty team manager names
+            team_total = sum(team_status_counts.values())
+            if team_total > 0:
+                analytics['team_stats'][team_manager] = {
+                    'total_days': team_total,
+                    'wfo_percentage': round((team_status_counts['WFO'] / team_total) * 100, 1),
+                    'wfh_percentage': round((team_status_counts['WFH'] / team_total) * 100, 1),
+                    'status_distribution': dict(team_status_counts)
+                }
     
     # Calculate monthly trends
     for month, month_status_counts in monthly_status_counts.items():
@@ -359,293 +375,153 @@ def create_interactive_visualizations(analytics):
             )
             plots.append(('Department Comparison', fig.to_html(include_plotlyjs='cdn')))
         
-        # 4. Employee Performance Heatmap
-        emp_stats = analytics.get('employee_stats', {})
-        if emp_stats and len(emp_stats) > 1:
-            employees = list(emp_stats.keys())[:10]  # Show top 10 employees
-            wfo_percentages = [emp_stats[emp]['wfo_percentage'] for emp in employees]
-            
-            fig = go.Figure(data=go.Heatmap(
-                z=[wfo_percentages],
-                x=employees,
-                y=['WFO %'],
-                colorscale='RdYlGn',
-                showscale=True,
-                hoverongaps=False
-            ))
-            
-            fig.update_layout(
-                title="Employee WFO Percentage Heatmap",
-                xaxis_title="Employee",
-                height=200,
-                xaxis=dict(tickangle=45)
-            )
-            plots.append(('Employee Heatmap', fig.to_html(include_plotlyjs='cdn')))
-        
-        # 5. Team Manager Performance
-        team_stats = analytics.get('team_stats', {})
-        if team_stats:
-            teams = list(team_stats.keys())
-            wfo_percentages = [team_stats[team]['wfo_percentage'] for team in teams]
-            
-            fig = go.Figure(data=[go.Bar(
-                x=teams,
-                y=wfo_percentages,
-                marker_color='#17a2b8',
-                text=[f"{val}%" for val in wfo_percentages],
-                textposition='auto'
-            )])
-            
-            fig.update_layout(
-                title="Team Manager-wise WFO Percentage",
-                xaxis_title="Team Manager",
-                yaxis_title="WFO Percentage (%)",
-                height=400,
-                xaxis=dict(tickangle=45)
-            )
-            plots.append(('Team Performance', fig.to_html(include_plotlyjs='cdn')))
-        
     except Exception as e:
-        print(f"Error creating visualizations: {e}")
+        logger.error(f"Error creating visualizations: {e}")
     
     return plots
 
 @app.route('/')
 def index():
     """Main dashboard page"""
-    combined_data, monthly_data, metadata = load_master_data()
-    
-    if combined_data:
-        # Calculate analytics
-        analytics = calculate_wfo_analytics(combined_data)
+    try:
+        combined_data, monthly_data, metadata = load_data_from_repo()
         
-        # Create interactive visualizations
-        plots = create_interactive_visualizations(analytics)
-        
-        # Get summary statistics
-        summary_stats = analytics.get('overall_stats', {})
-        
-        return render_template('modern_dashboard.html',
-                             analytics=analytics,
-                             plots=plots,
-                             metadata=metadata,
-                             summary_stats=summary_stats,
-                             monthly_data=monthly_data,
-                             show_upload_new=True)
-    else:
-        # No master data exists, show upload form
-        return render_template('upload_form.html', no_data=True)
-
-@app.route('/upload')
-def upload_form():
-    """Show upload form"""
-    return render_template('upload_form.html')
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    """Handle file upload and processing"""
-    if 'file' not in request.files:
-        flash('No file selected', 'error')
-        return redirect(request.url)
-    
-    file = request.files['file']
-    if file.filename == '':
-        flash('No file selected', 'error')
-        return redirect(request.url)
-    
-    if file and allowed_file(file.filename):
-        try:
-            filename = secure_filename(file.filename)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{timestamp}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
+        if combined_data:
+            # Calculate analytics
+            analytics = calculate_wfo_analytics(combined_data)
             
-            # Save as master data
-            if save_master_data(filepath, file.filename):
-                flash('File uploaded successfully and set as master data!', 'success')
-            else:
-                flash('File uploaded but failed to set as master data', 'error')
+            # Create interactive visualizations
+            plots = create_interactive_visualizations(analytics)
             
-            return redirect(url_for('index'))
-                                 
-        except Exception as e:
-            flash(f'Error processing file: {str(e)}', 'error')
-            return redirect(url_for('upload_form'))
-    
-    flash('Invalid file type. Please upload an Excel file (.xlsx or .xls)', 'error')
-    return redirect(url_for('upload_form'))
-
-@app.route('/api/analytics')
-def get_analytics():
-    """API endpoint to get analytics data"""
-    combined_data, monthly_data, metadata = load_master_data()
-    
-    if combined_data:
-        analytics = calculate_wfo_analytics(combined_data)
-        return jsonify({
-            'status': 'success',
-            'analytics': analytics,
-            'metadata': metadata
-        })
-    else:
-        return jsonify({'status': 'no_data'}), 404
-
-@app.route('/api/employee/<employee_name>')
-def get_employee_details(employee_name):
-    """API endpoint to get specific employee details"""
-    combined_data, monthly_data, metadata = load_master_data()
-    
-    if not combined_data:
-        return jsonify({'status': 'no_data'}), 404
-    
-    employee_data = []
-    for sheet_data in combined_data:
-        for employee in sheet_data['employees']:
-            if employee['name'].lower() == employee_name.lower():
-                employee_data.append({
-                    'month': sheet_data['sheet_name'],
-                    'employee_info': employee
-                })
-    
-    if employee_data:
-        return jsonify({
-            'status': 'success',
-            'employee_data': employee_data
-        })
-    else:
-        return jsonify({'status': 'employee_not_found'}), 404
-
-@app.route('/api/department/<department_name>')
-def get_department_details(department_name):
-    """API endpoint to get department-specific data"""
-    combined_data, monthly_data, metadata = load_master_data()
-    
-    if not combined_data:
-        return jsonify({'status': 'no_data'}), 404
-    
-    department_employees = []
-    for sheet_data in combined_data:
-        for employee in sheet_data['employees']:
-            if employee['department'].lower() == department_name.lower():
-                department_employees.append({
-                    'month': sheet_data['sheet_name'],
-                    'employee_info': employee
-                })
-    
-    if department_employees:
-        return jsonify({
-            'status': 'success',
-            'department_data': department_employees
-        })
-    else:
-        return jsonify({'status': 'department_not_found'}), 404
+            # Get summary statistics
+            summary_stats = analytics.get('overall_stats', {})
+            
+            return render_template('modern_dashboard.html',
+                                 analytics=analytics,
+                                 plots=plots,
+                                 metadata=metadata,
+                                 summary_stats=summary_stats,
+                                 monthly_data=monthly_data,
+                                 show_refresh=True)  # Show refresh instead of upload
+        else:
+            return render_template('no_data.html')
+            
+    except Exception as e:
+        logger.error(f"Error in index route: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return render_template('error.html', error_message=str(e))
 
 @app.route('/calendar')
 def calendar_view():
     """Calendar view page"""
-    combined_data, monthly_data, metadata = load_master_data()
-    
-    if not combined_data:
+    try:
+        combined_data, monthly_data, metadata = load_data_from_repo()
+        
+        if not combined_data:
+            return redirect(url_for('index'))
+        
+        # Get current month or first available month
+        current_month = request.args.get('month')
+        if not current_month or current_month not in monthly_data:
+            current_month = list(monthly_data.keys())[0]
+        
+        month_data = monthly_data[current_month]
+        
+        return render_template('calendar_view.html',
+                             month_data=month_data,
+                             current_month=current_month,
+                             available_months=list(monthly_data.keys()),
+                             wfo_config=WFO_STATUS_CONFIG)
+    except Exception as e:
+        logger.error(f"Error in calendar route: {e}")
         return redirect(url_for('index'))
-    
-    # Get current month or first available month
-    current_month = request.args.get('month')
-    if not current_month or current_month not in monthly_data:
-        current_month = list(monthly_data.keys())[0]
-    
-    month_data = monthly_data[current_month]
-    
-    return render_template('calendar_view.html',
-                         month_data=month_data,
-                         current_month=current_month,
-                         available_months=list(monthly_data.keys()),
-                         wfo_config=WFO_STATUS_CONFIG)
 
 @app.route('/reports')
 def reports_view():
     """Reports and analytics page"""
-    combined_data, monthly_data, metadata = load_master_data()
-    
-    if not combined_data:
-        return redirect(url_for('index'))
-    
-    analytics = calculate_wfo_analytics(combined_data)
-    
-    return render_template('reports.html',
-                         analytics=analytics,
-                         metadata=metadata,
-                         monthly_data=monthly_data)
-
-@app.route('/export/csv')
-def export_csv():
-    """Export data as CSV"""
-    combined_data, monthly_data, metadata = load_master_data()
-    
-    if not combined_data:
-        return jsonify({'status': 'no_data'}), 404
-    
-    # Create CSV data
-    csv_data = []
-    for sheet_data in combined_data:
-        for employee in sheet_data['employees']:
-            for date, status in employee['daily_status'].items():
-                csv_data.append({
-                    'Employee Name': employee['name'],
-                    'Person ID': employee['person_id'],
-                    'Department': employee['department'],
-                    'Team Manager': employee['team_manager'],
-                    'Shift Timings': employee['shift_timings'],
-                    'Month': sheet_data['sheet_name'],
-                    'Date': date,
-                    'Status': status
-                })
-    
-    if csv_data:
-        df = pd.DataFrame(csv_data)
-        output = io.StringIO()
-        df.to_csv(output, index=False)
-        output.seek(0)
+    try:
+        combined_data, monthly_data, metadata = load_data_from_repo()
         
-        from flask import Response
-        return Response(
-            output.getvalue(),
-            mimetype='text/csv',
-            headers={'Content-Disposition': 'attachment; filename=wfo_data_export.csv'}
-        )
-    
-    return jsonify({'status': 'no_data'}), 404
-
-@app.route('/data/refresh')
-def refresh_data():
-    """API endpoint to refresh data from master file"""
-    combined_data, monthly_data, metadata = load_master_data()
-    
-    if combined_data:
+        if not combined_data:
+            return redirect(url_for('index'))
+        
         analytics = calculate_wfo_analytics(combined_data)
-        return jsonify({
-            'status': 'success',
-            'total_employees': len(set(emp['name'] for sheet in combined_data for emp in sheet['employees'])),
-            'total_sheets': len(combined_data),
-            'last_updated': metadata.get('upload_timestamp', 'Unknown'),
-            'overall_stats': analytics.get('overall_stats', {})
-        })
-    else:
-        return jsonify({'status': 'no_data'}), 404
+        
+        return render_template('reports.html',
+                             analytics=analytics,
+                             metadata=metadata,
+                             monthly_data=monthly_data)
+    except Exception as e:
+        logger.error(f"Error in reports route: {e}")
+        return redirect(url_for('index'))
+
+@app.route('/api/refresh')
+def refresh_data():
+    """API endpoint to refresh data from repository file"""
+    try:
+        combined_data, monthly_data, metadata = load_data_from_repo()
+        
+        if combined_data:
+            analytics = calculate_wfo_analytics(combined_data)
+            return jsonify({
+                'status': 'success',
+                'total_employees': metadata.get('total_employees', 0),
+                'total_sheets': metadata.get('total_sheets', 0),
+                'last_modified': metadata.get('last_modified', 'Unknown'),
+                'source_file': metadata.get('source_file', 'Unknown'),
+                'overall_stats': analytics.get('overall_stats', {}),
+                'refreshed_at': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({'status': 'no_data', 'message': 'No Excel file found in repository'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error refreshing data: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/file-info')
+def file_info():
+    """API endpoint to get current file information"""
+    try:
+        file_info = find_latest_excel_file()
+        if file_info:
+            return jsonify({
+                'status': 'success',
+                'file_info': file_info
+            })
+        else:
+            return jsonify({'status': 'no_file', 'message': 'No Excel file found'}), 404
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/health')
 def health_check():
     """Health check endpoint"""
-    combined_data, monthly_data, metadata = load_master_data()
-    return jsonify({
-        'status': 'healthy', 
-        'timestamp': datetime.now().isoformat(),
-        'has_master_data': combined_data is not None,
-        'data_info': metadata if combined_data else None,
-        'version': '2.0.0'
-    })
+    try:
+        file_info = find_latest_excel_file()
+        combined_data, monthly_data, metadata = load_data_from_repo()
+        
+        return jsonify({
+            'status': 'healthy', 
+            'timestamp': datetime.now().isoformat(),
+            'has_data_file': file_info is not None,
+            'has_processed_data': combined_data is not None,
+            'file_info': file_info,
+            'data_info': metadata if combined_data else None,
+            'version': '2.0.0-repo',
+            'data_folder': DATA_FOLDER
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 if __name__ == '__main__':
     # Get port from environment variable (Azure sets this)
     port = int(os.environ.get('PORT', 5000))
+    logger.info(f"Starting Flask app on port {port}")
+    logger.info(f"Data folder: {DATA_FOLDER}")
+    logger.info(f"Excel file pattern: {EXCEL_FILE_PATTERN}")
     app.run(host='0.0.0.0', port=port, debug=False)
