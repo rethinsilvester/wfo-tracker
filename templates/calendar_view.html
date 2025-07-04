@@ -403,20 +403,44 @@
                         <tr>
                             <th class="employee-header">Employee</th>
                             {% for date_col in month_data.date_columns %}
-                                {% set day_num = loop.index %}
-                                {% set is_weekend = (day_num % 7 == 0 or day_num % 7 == 1) %}
-                                <th class="date-header {% if is_weekend %}weekend-header{% endif %}">
-                                    <div>{{ day_num }}</div>
-                                    <div class="day-header">
-                                        {% if day_num % 7 == 1 %}Sun
-                                        {% elif day_num % 7 == 2 %}Mon
-                                        {% elif day_num % 7 == 3 %}Tue
-                                        {% elif day_num % 7 == 4 %}Wed
-                                        {% elif day_num % 7 == 5 %}Thu
-                                        {% elif day_num % 7 == 6 %}Fri
-                                        {% else %}Sat
+                                {% set date_obj = date_col %}
+                                {% if date_col is string %}
+                                    {% set date_parts = date_col.split('-') %}
+                                    {% if date_parts|length >= 3 %}
+                                        {% set year = date_parts[0]|int %}
+                                        {% set month = date_parts[1]|int %}
+                                        {% set day = date_parts[2].split(' ')[0]|int %}
+                                        
+                                        {# Calculate day of week using Zeller's congruence #}
+                                        {% set month_calc = month %}
+                                        {% set year_calc = year %}
+                                        {% if month < 3 %}
+                                            {% set month_calc = month + 12 %}
+                                            {% set year_calc = year - 1 %}
                                         {% endif %}
-                                    </div>
+                                        {% set k = year_calc % 100 %}
+                                        {% set j = year_calc // 100 %}
+                                        {% set h = (day + ((13 * (month_calc + 1)) // 5) + k + (k // 4) + (j // 4) - 2 * j) % 7 %}
+                                        {# Convert to Sunday=0 format #}
+                                        {% set day_of_week = (h + 5) % 7 %}
+                                        
+                                        {% set is_weekend = (day_of_week == 0 or day_of_week == 6) %}
+                                        {% set day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] %}
+                                        {% set day_name = day_names[day_of_week] %}
+                                    {% else %}
+                                        {% set day = loop.index %}
+                                        {% set is_weekend = false %}
+                                        {% set day_name = '' %}
+                                    {% endif %}
+                                {% else %}
+                                    {% set day = loop.index %}
+                                    {% set is_weekend = false %}
+                                    {% set day_name = '' %}
+                                {% endif %}
+                                
+                                <th class="date-header {% if is_weekend %}weekend-header{% endif %}">
+                                    <div>{{ day }}</div>
+                                    <div class="day-header">{{ day_name }}</div>
                                 </th>
                             {% endfor %}
                         </tr>
@@ -432,8 +456,35 @@
                                 </div>
                             </td>
                             {% for date_col in month_data.date_columns %}
-                                {% set day_num = loop.index %}
-                                {% set is_weekend = (day_num % 7 == 0 or day_num % 7 == 1) %}
+                                {% set date_obj = date_col %}
+                                {% if date_col is string %}
+                                    {% set date_parts = date_col.split('-') %}
+                                    {% if date_parts|length >= 3 %}
+                                        {% set year = date_parts[0]|int %}
+                                        {% set month = date_parts[1]|int %}
+                                        {% set day = date_parts[2].split(' ')[0]|int %}
+                                        
+                                        {# Calculate day of week using Zeller's congruence #}
+                                        {% set month_calc = month %}
+                                        {% set year_calc = year %}
+                                        {% if month < 3 %}
+                                            {% set month_calc = month + 12 %}
+                                            {% set year_calc = year - 1 %}
+                                        {% endif %}
+                                        {% set k = year_calc % 100 %}
+                                        {% set j = year_calc // 100 %}
+                                        {% set h = (day + ((13 * (month_calc + 1)) // 5) + k + (k // 4) + (j // 4) - 2 * j) % 7 %}
+                                        {# Convert to Sunday=0 format #}
+                                        {% set day_of_week = (h + 5) % 7 %}
+                                        
+                                        {% set is_weekend = (day_of_week == 0 or day_of_week == 6) %}
+                                    {% else %}
+                                        {% set is_weekend = false %}
+                                    {% endif %}
+                                {% else %}
+                                    {% set is_weekend = false %}
+                                {% endif %}
+                                
                                 {% set status = employee.daily_status.get(date_col, '') %}
                                 {% set status_class = 'status-' + status.lower().replace(' ', '-').replace('planned', 'planned') if status else 'status-empty' %}
                                 {% if status.upper() == 'PL' %}
