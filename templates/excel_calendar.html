@@ -11,8 +11,7 @@
             --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --wfo-color: #28a745;
             --wfh-color: #007bff;
-            --sick-leave-color: #dc3545;
-            --planned-leave-color: #fd7e14;
+            --leave-color: #dc3545;
             --holiday-color: #6c757d;
             --light-bg: #f8f9fa;
             --border-color: #dee2e6;
@@ -161,14 +160,7 @@
         }
 
         .status-sl {
-            background-color: var(--sick-leave-color);
-            color: white;
-        }
-
-        .status-leave,
-        .status-planned-leave,
-        .status-pl {
-            background-color: var(--planned-leave-color);
+            background-color: var(--leave-color);
             color: white;
         }
 
@@ -359,12 +351,8 @@
                     <span><strong>WFH</strong> - Work From Home</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background-color: var(--sick-leave-color);"></div>
+                    <div class="legend-color" style="background-color: var(--leave-color);"></div>
                     <span><strong>SL</strong> - Sick Leave</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background-color: var(--planned-leave-color);"></div>
-                    <span><strong>Leave</strong> - Planned Leave</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background-color: var(--holiday-color);"></div>
@@ -418,7 +406,7 @@
                                 {% set day_num = loop.index %}
                                 {% set is_weekend = (day_num % 7 == 0 or day_num % 7 == 1) %}
                                 {% set status = employee.daily_status.get(date_col, '') %}
-                                {% set status_class = 'status-' + status.lower().replace(' ', '-').replace('planned-leave', 'planned-leave').replace('sick-leave', 'sl') if status else 'status-empty' %}
+                                {% set status_class = 'status-' + status.lower().replace(' ', '-') if status else 'status-empty' %}
                                 <td class="status-cell {{ status_class }} {% if is_weekend and not status %}weekend-cell{% endif %}"
                                     onclick="showStatusDetails('{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
                                     onmouseenter="showTooltip(event, '{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
@@ -427,10 +415,8 @@
                                         <i class="fas fa-building"></i>
                                     {% elif status == 'WFH' %}
                                         <i class="fas fa-home"></i>
-                                    {% elif status == 'SL' or status == 'Sick Leave' %}
-                                        <i class="fas fa-user-injured"></i>
-                                    {% elif status in ['Leave', 'Planned Leave', 'PL'] %}
-                                        <i class="fas fa-calendar-minus"></i>
+                                    {% elif status == 'SL' %}
+                                        <i class="fas fa-user-times"></i>
                                     {% elif status == 'India Holiday' %}
                                         <i class="fas fa-calendar-times"></i>
                                     {% else %}
@@ -451,7 +437,6 @@
                 <i class="fas fa-chart-bar"></i> Monthly Statistics - {{ current_month }}
             </h5>
             <div class="stats-grid">
-                {% if monthly_stats %}
                 <div class="stat-card">
                     <div class="stat-number" style="color: var(--wfo-color);">{{ monthly_stats.total_wfo_days }}</div>
                     <div class="stat-label">Total WFO Days</div>
@@ -461,30 +446,21 @@
                     <div class="stat-label">Total WFH Days</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" style="color: var(--sick-leave-color);">{{ monthly_stats.total_sick_leave_days }}</div>
-                    <div class="stat-label">Sick Leave Days</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="color: var(--planned-leave-color);">{{ monthly_stats.total_planned_leave_days }}</div>
-                    <div class="stat-label">Planned Leave Days</div>
+                    <div class="stat-number" style="color: var(--leave-color);">{{ monthly_stats.total_leave_days }}</div>
+                    <div class="stat-label">Total Leave Days</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" style="color: var(--holiday-color);">{{ monthly_stats.total_holiday_days }}</div>
                     <div class="stat-label">Holiday Days</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" style="color: var(--wfo-color);">{{ monthly_stats.overall_wfo_percentage }}%</div>
+                    <div class="stat-number" style="color: var(--wfo-color);">{{ monthly_stats.wfo_percentage }}%</div>
                     <div class="stat-label">WFO Percentage</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" style="color: var(--wfh-color);">{{ monthly_stats.overall_wfh_percentage }}%</div>
+                    <div class="stat-number" style="color: var(--wfh-color);">{{ monthly_stats.wfh_percentage }}%</div>
                     <div class="stat-label">WFH Percentage</div>
                 </div>
-                {% else %}
-                <div class="col-12 text-center text-muted">
-                    <p>Statistics not available</p>
-                </div>
-                {% endif %}
             </div>
         </div>
         {% else %}

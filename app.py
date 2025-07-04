@@ -1,85 +1,72 @@
 import os
 import pandas as pd
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-import plotly.utils
-from flask import Flask, request, render_template, jsonify, redirect, url_for, flash
-import io
-import base64
-from datetime import datetime, timedelta
+from flask import Flask, request, render_template, jsonify, redirect, url_for
+from datetime import datetime
 import json
-import calendar
 from collections import defaultdict
-import numpy as np
 import logging
 import traceback
 import glob
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'
 
-# Configuration - files will be read from repository
-DATA_FOLDER = 'data'  # Folder in your repo containing Excel files
-EXCEL_FILE_PATTERN = '*.xlsx'  # Pattern to match Excel files
+# Configuration
+DATA_FOLDER = 'data'
+EXCEL_FILE_PATTERN = '*.xlsx'
 
-# Create data folder if it doesn't exist (for local development)
+# Create data folder if it doesn't exist
 os.makedirs(DATA_FOLDER, exist_ok=True)
-
-# WFO Status mapping and colors
-WFO_STATUS_CONFIG = {
-    'WFO': {'color': '#28a745', 'label': 'Work From Office', 'icon': '🏢'},
-    'WFH': {'color': '#007bff', 'label': 'Work From Home', 'icon': '🏠'},
-    'SL': {'color': '#dc3545', 'label': 'Sick Leave', 'icon': '🤒'},
-    'India Holiday': {'color': '#6c757d', 'label': 'Holiday', 'icon': '🎉'},
-    'Leave': {'color': '#ffc107', 'label': 'Leave', 'icon': '🌴'},
-    '': {'color': '#f8f9fa', 'label': 'No Data', 'icon': '❓'},
-    None: {'color': '#f8f9fa', 'label': 'No Data', 'icon': '❓'}
-}
 
 def find_latest_excel_file():
     """Find the latest Excel file in the data folder"""
     try:
-        # Look for Excel files in the data folder
         excel_files = glob.glob(os.path.join(DATA_FOLDER, EXCEL_FILE_PATTERN))
         
         if not excel_files:
-            # Also check in root directory as fallback
             excel_files = glob.glob(EXCEL_FILE_PATTERN)
         
         if not excel_files:
-            logger.warning("No Excel files found in data folder or root directory")
+            logger.warning("No Excel files found")
             return None
         
-        # Sort by modification time, get the latest
         latest_file = max(excel_files, key=os.path.getmtime)
         logger.info(f"Found latest Excel file: {latest_file}")
         
-        # Get file info
         file_stats = os.stat(latest_file)
-        file_info = {
+        return {
             'filepath': latest_file,
             'filename': os.path.basename(latest_file),
             'size': file_stats.st_size,
             'modified': datetime.fromtimestamp(file_stats.st_mtime).isoformat()
         }
         
-        return file_info
-        
     except Exception as e:
         logger.error(f"Error finding Excel file: {e}")
         return None
+
+def sort_months_chronologically(month_names):
+    """Sort month names in chronological order"""
+    month_order = {
+        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+        'january': 1, 'february': 2, 'march': 3, 'april': 4,
+        'june': 6, 'july': 7, 'august': 8, 'september': 9,
+        'october': 10, 'november': 11, 'december': 12
+    }
+    
+    def get_month_number(month_name):
+        words = month_name.lower().split()
+        for word in words:
+            if word in month_order:
+                return month_order[word]
+        return 0
+    
+    return sorted(month_names, key=get_month_number)
 
 def load_data_from_repo():
     """Load and process data from the repository Excel file"""
@@ -87,17 +74,14 @@ def load_data_from_repo():
         file_info = find_latest_excel_file()
         
         if not file_info:
-            logger.warning("No Excel file found in repository")
             return None, None, {}
         
         filepath = file_info['filepath']
         logger.info(f"Loading data from: {filepath}")
         
-        # Read all sheets from the Excel file
         excel_data = pd.read_excel(filepath, sheet_name=None)
         logger.info(f"Loaded Excel file with sheets: {list(excel_data.keys())}")
         
-        # Process each sheet and combine data
         combined_data = []
         monthly_data = {}
         
@@ -105,63 +89,83 @@ def load_data_from_repo():
             if df.empty:
                 continue
                 
-            # Process the sheet data
             processed_data = process_monthly_sheet(df, sheet_name)
             if processed_data is not None:
                 combined_data.append(processed_data)
                 monthly_data[sheet_name] = processed_data
         
-        # Create metadata
+        sorted_month_names = sort_months_chronologically(list(monthly_data.keys()))
+        sorted_monthly_data = {month: monthly_data[month] for month in sorted_month_names}
+        
         metadata = {
             'source_file': file_info['filename'],
             'file_path': filepath,
             'file_size': file_info['size'],
             'last_modified': file_info['modified'],
             'total_sheets': len(combined_data),
-            'total_employees': len(set(emp['name'] for sheet in combined_data for emp in sheet['employees'] if emp['name'])) if combined_data else 0,
-            'sheet_names': list(monthly_data.keys()) if monthly_data else [],
+            'total_employees': len(set(emp['name'] for sheet in combined_data for emp in sheet['employees'] if emp['name'] and emp['name'].strip() != 'Employee Name')) if combined_data else 0,
+            'sheet_names': sorted_month_names,
             'loaded_timestamp': datetime.now().isoformat()
         }
         
         logger.info(f"Loaded data for {len(combined_data)} sheets, {metadata['total_employees']} employees")
-        return combined_data, monthly_data, metadata
+        return combined_data, sorted_monthly_data, metadata
         
     except Exception as e:
-        logger.error(f"Error loading data from repository: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Error loading data: {e}")
         return None, None, {}
 
 def process_monthly_sheet(df, sheet_name):
     """Process a single monthly sheet and extract relevant data"""
     try:
         if df.empty or len(df) < 2:
-            logger.warning(f"Sheet {sheet_name} is empty or too small")
             return None
         
-        logger.info(f"Processing sheet: {sheet_name} with {len(df)} rows and {len(df.columns)} columns")
+        logger.info(f"Processing sheet: {sheet_name}")
+        logger.info(f"Sheet shape: {df.shape}")
         
-        # Extract employee data (starting from row 2, index 2)
         employee_data = []
         date_columns = []
         
         # Find date columns (they start from column 5 onwards)
         for col_idx, col_name in enumerate(df.columns):
-            if col_idx >= 5:  # Skip first 5 columns (employee info)
+            if col_idx >= 5:
                 date_columns.append(str(col_name))
         
-        logger.info(f"Found {len(date_columns)} date columns in {sheet_name}")
+        logger.info(f"Found {len(date_columns)} date columns")
         
-        # Process each employee row
-        employee_count = 0
+        seen_employees = set()
+        
+        # Process each employee row (skip first 2 rows which are headers)
         for idx, row in df.iterrows():
-            if idx < 2:  # Skip header rows
+            if idx < 2:
+                logger.info(f"Skipping header row {idx}")
                 continue
                 
-            if pd.isna(row.iloc[0]) or str(row.iloc[0]).strip() == '':  # Skip empty rows
+            emp_name_raw = row.iloc[0]
+            if pd.isna(emp_name_raw):
                 continue
                 
+            emp_name = str(emp_name_raw).strip()
+            
+            # Special debug for Lokesh
+            if 'lokesh' in emp_name.lower():
+                logger.info(f"LOKESH DEBUG - Raw name: '{emp_name_raw}', Cleaned: '{emp_name}'")
+                logger.info(f"LOKESH DEBUG - Row index: {idx}")
+            
+            # Skip if empty name, header row, or duplicate
+            if (not emp_name or 
+                emp_name == '' or 
+                emp_name.lower() == 'employee name' or
+                emp_name in seen_employees):
+                if 'lokesh' in emp_name.lower():
+                    logger.info(f"LOKESH DEBUG - Skipping due to validation")
+                continue
+            
+            seen_employees.add(emp_name)
+            
             employee_info = {
-                'name': str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else '',
+                'name': emp_name,
                 'person_id': str(row.iloc[1]) if pd.notna(row.iloc[1]) else '',
                 'department': str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else '',
                 'team_manager': str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) else '',
@@ -171,17 +175,30 @@ def process_monthly_sheet(df, sheet_name):
             }
             
             # Extract daily status
+            status_count = 0
             for col_idx, date_col in enumerate(date_columns):
                 if col_idx + 5 < len(row):
                     status = row.iloc[col_idx + 5]
                     if pd.notna(status) and str(status).strip() != '':
-                        employee_info['daily_status'][str(date_col)] = str(status).strip()
+                        clean_status = str(status).strip()
+                        if clean_status:
+                            employee_info['daily_status'][str(date_col)] = clean_status
+                            status_count += 1
+                            
+                            # Special debug for Lokesh
+                            if 'lokesh' in emp_name.lower() and status_count <= 5:
+                                logger.info(f"LOKESH DEBUG - Date: {date_col}, Status: '{clean_status}'")
             
-            if employee_info['name']:  # Only add if name exists
+            if 'lokesh' in emp_name.lower():
+                logger.info(f"LOKESH DEBUG - Total status entries: {status_count}")
+            
+            logger.info(f"Employee: {emp_name}, Status entries: {status_count}")
+            
+            if employee_info['name']:
                 employee_data.append(employee_info)
-                employee_count += 1
         
-        logger.info(f"Processed sheet {sheet_name}: {employee_count} employees")
+        logger.info(f"Processed {len(employee_data)} unique employees from {sheet_name}")
+        
         return {
             'sheet_name': sheet_name,
             'employees': employee_data,
@@ -193,219 +210,170 @@ def process_monthly_sheet(df, sheet_name):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return None
 
-def calculate_wfo_analytics(combined_data):
-    """Calculate WFO analytics from combined data"""
-    if not combined_data:
-        return {}
-    
-    analytics = {
-        'overall_stats': {},
-        'employee_stats': {},
-        'department_stats': {},
-        'monthly_trends': {},
-        'team_stats': {}
+def calculate_employee_stats(employee, date_columns):
+    """Calculate statistics for a single employee"""
+    stats = {
+        'wfo_days': 0,
+        'wfh_days': 0,
+        'sick_leave_days': 0,
+        'planned_leave_days': 0,
+        'holiday_days': 0,
+        'total_days': 0
     }
     
-    # Initialize counters
-    total_days = 0
-    status_counts = defaultdict(int)
-    employee_status_counts = defaultdict(lambda: defaultdict(int))
-    department_status_counts = defaultdict(lambda: defaultdict(int))
-    team_status_counts = defaultdict(lambda: defaultdict(int))
-    monthly_status_counts = defaultdict(lambda: defaultdict(int))
+    logger.info(f"Calculating stats for {employee['name']}, daily_status entries: {len(employee['daily_status'])}")
     
-    # Process all data
-    for sheet_data in combined_data:
-        month = sheet_data['sheet_name']
-        for employee in sheet_data['employees']:
-            emp_name = employee['name']
-            dept = employee['department']
-            team_manager = employee['team_manager']
+    for date_col in date_columns:
+        status = employee['daily_status'].get(str(date_col), '')
+        if status and status.strip():
+            stats['total_days'] += 1
+            status_upper = status.upper().strip()
             
-            for date, status in employee['daily_status'].items():
-                if status and status.strip():  # Only count non-empty statuses
-                    total_days += 1
-                    status_counts[status] += 1
-                    employee_status_counts[emp_name][status] += 1
-                    department_status_counts[dept][status] += 1
-                    team_status_counts[team_manager][status] += 1
-                    monthly_status_counts[month][status] += 1
+            if status_upper == 'WFO':
+                stats['wfo_days'] += 1
+            elif status_upper == 'WFH':
+                stats['wfh_days'] += 1
+            elif status_upper in ['SL', 'SICK LEAVE']:
+                stats['sick_leave_days'] += 1
+            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:
+                stats['planned_leave_days'] += 1
+            elif status_upper in ['INDIA HOLIDAY', 'HOLIDAY']:
+                stats['holiday_days'] += 1
     
-    # Calculate overall statistics
-    if total_days > 0:
-        analytics['overall_stats'] = {
-            'total_days': total_days,
-            'wfo_percentage': round((status_counts['WFO'] / total_days) * 100, 1),
-            'wfh_percentage': round((status_counts['WFH'] / total_days) * 100, 1),
-            'leave_percentage': round((status_counts['SL'] / total_days) * 100, 1),
-            'holiday_percentage': round((status_counts['India Holiday'] / total_days) * 100, 1),
-            'status_distribution': dict(status_counts)
-        }
+    # Calculate total leave days for backward compatibility
+    stats['leave_days'] = stats['sick_leave_days'] + stats['planned_leave_days']
     
-    # Calculate employee statistics
-    for emp_name, emp_status_counts in employee_status_counts.items():
-        emp_total = sum(emp_status_counts.values())
-        if emp_total > 0:
-            analytics['employee_stats'][emp_name] = {
-                'total_days': emp_total,
-                'wfo_percentage': round((emp_status_counts['WFO'] / emp_total) * 100, 1),
-                'wfh_percentage': round((emp_status_counts['WFH'] / emp_total) * 100, 1),
-                'status_distribution': dict(emp_status_counts)
-            }
+    # Calculate percentages
+    if stats['total_days'] > 0:
+        stats['wfo_percentage'] = round((stats['wfo_days'] / stats['total_days']) * 100, 1)
+        stats['wfh_percentage'] = round((stats['wfh_days'] / stats['total_days']) * 100, 1)
+        stats['sick_leave_percentage'] = round((stats['sick_leave_days'] / stats['total_days']) * 100, 1)
+        stats['planned_leave_percentage'] = round((stats['planned_leave_days'] / stats['total_days']) * 100, 1)
+        stats['leave_percentage'] = round((stats['leave_days'] / stats['total_days']) * 100, 1)
+        stats['holiday_percentage'] = round((stats['holiday_days'] / stats['total_days']) * 100, 1)
+        stats['attendance_rate'] = round(((stats['wfo_days'] + stats['wfh_days']) / stats['total_days']) * 100, 1)
+    else:
+        stats['wfo_percentage'] = 0
+        stats['wfh_percentage'] = 0
+        stats['sick_leave_percentage'] = 0
+        stats['planned_leave_percentage'] = 0
+        stats['leave_percentage'] = 0
+        stats['holiday_percentage'] = 0
+        stats['attendance_rate'] = 0
     
-    # Calculate department statistics
-    for dept, dept_status_counts in department_status_counts.items():
-        if dept:  # Skip empty department names
-            dept_total = sum(dept_status_counts.values())
-            if dept_total > 0:
-                analytics['department_stats'][dept] = {
-                    'total_days': dept_total,
-                    'wfo_percentage': round((dept_status_counts['WFO'] / dept_total) * 100, 1),
-                    'wfh_percentage': round((dept_status_counts['WFH'] / dept_total) * 100, 1),
-                    'status_distribution': dict(dept_status_counts)
-                }
-    
-    # Calculate team statistics
-    for team_manager, team_status_counts in team_status_counts.items():
-        if team_manager:  # Skip empty team manager names
-            team_total = sum(team_status_counts.values())
-            if team_total > 0:
-                analytics['team_stats'][team_manager] = {
-                    'total_days': team_total,
-                    'wfo_percentage': round((team_status_counts['WFO'] / team_total) * 100, 1),
-                    'wfh_percentage': round((team_status_counts['WFH'] / team_total) * 100, 1),
-                    'status_distribution': dict(team_status_counts)
-                }
-    
-    # Calculate monthly trends
-    for month, month_status_counts in monthly_status_counts.items():
-        month_total = sum(month_status_counts.values())
-        if month_total > 0:
-            analytics['monthly_trends'][month] = {
-                'total_days': month_total,
-                'wfo_percentage': round((month_status_counts['WFO'] / month_total) * 100, 1),
-                'wfh_percentage': round((month_status_counts['WFH'] / month_total) * 100, 1),
-                'status_distribution': dict(month_status_counts)
-            }
-    
-    return analytics
+    logger.info(f"Stats for {employee['name']}: WFO={stats['wfo_days']}, WFH={stats['wfh_days']}, SL={stats['sick_leave_days']}, PL={stats['planned_leave_days']}, Total={stats['total_days']}")
+    return stats
 
-def create_interactive_visualizations(analytics):
-    """Create interactive visualizations using Plotly"""
-    plots = []
+def calculate_monthly_summary(month_data):
+    """Calculate monthly summary statistics"""
+    if not month_data or not month_data.get('employees'):
+        return None
     
-    if not analytics or not analytics.get('overall_stats'):
-        return plots
+    total_wfo = total_wfh = total_sick_leave = total_planned_leave = total_holiday = total_working = 0
     
-    try:
-        # 1. Overall Status Distribution Pie Chart
-        status_dist = analytics['overall_stats']['status_distribution']
-        if status_dist:
-            fig = go.Figure(data=[go.Pie(
-                labels=list(status_dist.keys()),
-                values=list(status_dist.values()),
-                hole=0.3,
-                marker_colors=[WFO_STATUS_CONFIG.get(status, {}).get('color', '#cccccc') for status in status_dist.keys()]
-            )])
-            fig.update_layout(
-                title="Overall Work Status Distribution",
-                font=dict(size=14),
-                showlegend=True,
-                height=400
-            )
-            plots.append(('Overall Status Distribution', fig.to_html(include_plotlyjs='cdn')))
-        
-        # 2. Monthly Trends Line Chart
-        monthly_trends = analytics.get('monthly_trends', {})
-        if monthly_trends:
-            months = list(monthly_trends.keys())
-            wfo_percentages = [monthly_trends[month]['wfo_percentage'] for month in months]
-            wfh_percentages = [monthly_trends[month]['wfh_percentage'] for month in months]
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=months, y=wfo_percentages,
-                mode='lines+markers',
-                name='WFO %',
-                line=dict(color='#28a745', width=3),
-                marker=dict(size=8)
-            ))
-            fig.add_trace(go.Scatter(
-                x=months, y=wfh_percentages,
-                mode='lines+markers',
-                name='WFH %',
-                line=dict(color='#007bff', width=3),
-                marker=dict(size=8)
-            ))
-            
-            fig.update_layout(
-                title="Monthly WFO vs WFH Trends",
-                xaxis_title="Month",
-                yaxis_title="Percentage (%)",
-                height=400,
-                hovermode='x unified'
-            )
-            plots.append(('Monthly Trends', fig.to_html(include_plotlyjs='cdn')))
-        
-        # 3. Department Comparison Bar Chart
-        dept_stats = analytics.get('department_stats', {})
-        if dept_stats:
-            departments = list(dept_stats.keys())
-            wfo_percentages = [dept_stats[dept]['wfo_percentage'] for dept in departments]
-            wfh_percentages = [dept_stats[dept]['wfh_percentage'] for dept in departments]
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=departments, y=wfo_percentages,
-                name='WFO %',
-                marker_color='#28a745'
-            ))
-            fig.add_trace(go.Bar(
-                x=departments, y=wfh_percentages,
-                name='WFH %',
-                marker_color='#007bff'
-            ))
-            
-            fig.update_layout(
-                title="Department-wise WFO vs WFH Comparison",
-                xaxis_title="Department",
-                yaxis_title="Percentage (%)",
-                barmode='group',
-                height=400
-            )
-            plots.append(('Department Comparison', fig.to_html(include_plotlyjs='cdn')))
-        
-    except Exception as e:
-        logger.error(f"Error creating visualizations: {e}")
+    for employee in month_data['employees']:
+        for status in employee['daily_status'].values():
+            status_upper = status.upper().strip()
+            if status_upper == 'WFO':
+                total_wfo += 1
+                total_working += 1
+            elif status_upper == 'WFH':
+                total_wfh += 1
+                total_working += 1
+            elif status_upper in ['SL', 'SICK LEAVE']:
+                total_sick_leave += 1
+                total_working += 1
+            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:
+                total_planned_leave += 1
+                total_working += 1
+            elif status_upper in ['INDIA HOLIDAY', 'HOLIDAY']:
+                total_holiday += 1
     
-    return plots
+    total_leave = total_sick_leave + total_planned_leave
+    
+    summary = {
+        'total_wfo_days': total_wfo,
+        'total_wfh_days': total_wfh,
+        'total_sick_leave_days': total_sick_leave,
+        'total_planned_leave_days': total_planned_leave,
+        'total_leave_days': total_leave,
+        'total_holiday_days': total_holiday,
+        'total_working_days': total_working,
+        'total_employees': len(month_data['employees'])
+    }
+    
+    if total_working > 0:
+        summary['overall_wfo_percentage'] = round((total_wfo / total_working) * 100, 1)
+        summary['overall_wfh_percentage'] = round((total_wfh / total_working) * 100, 1)
+        summary['overall_sick_leave_percentage'] = round((total_sick_leave / total_working) * 100, 1)
+        summary['overall_planned_leave_percentage'] = round((total_planned_leave / total_working) * 100, 1)
+        summary['overall_leave_percentage'] = round((total_leave / total_working) * 100, 1)
+    else:
+        summary['overall_wfo_percentage'] = 0
+        summary['overall_wfh_percentage'] = 0
+        summary['overall_sick_leave_percentage'] = 0
+        summary['overall_planned_leave_percentage'] = 0
+        summary['overall_leave_percentage'] = 0
+    
+    return summary
 
 @app.route('/')
 def index():
-    """Main dashboard page"""
+    """Minimal employee-focused landing page"""
     try:
         combined_data, monthly_data, metadata = load_data_from_repo()
         
-        if combined_data:
-            # Calculate analytics
-            analytics = calculate_wfo_analytics(combined_data)
-            
-            # Create interactive visualizations
-            plots = create_interactive_visualizations(analytics)
-            
-            # Get summary statistics
-            summary_stats = analytics.get('overall_stats', {})
-            
-            return render_template('modern_dashboard.html',
-                                 analytics=analytics,
-                                 plots=plots,
-                                 metadata=metadata,
-                                 summary_stats=summary_stats,
-                                 monthly_data=monthly_data,
-                                 show_refresh=True)  # Show refresh instead of upload
-        else:
+        if not combined_data:
             return render_template('no_data.html')
+        
+        # Get current month - DEFAULT TO LATEST (LAST) MONTH
+        current_month = request.args.get('month')
+        available_months = list(monthly_data.keys())
+        
+        if not current_month or current_month not in monthly_data:
+            current_month = available_months[-1] if available_months else None
+        
+        if not current_month:
+            return render_template('no_data.html')
+        
+        month_data = monthly_data[current_month]
+        
+        # Filter out invalid employees and remove duplicates
+        valid_employees = []
+        seen_names = set()
+        
+        for employee in month_data['employees']:
+            emp_name = employee['name'].strip()
             
+            if (not emp_name or 
+                emp_name.lower() == 'employee name' or
+                emp_name in seen_names):
+                continue
+            
+            seen_names.add(emp_name)
+            
+            # Calculate stats
+            stats = calculate_employee_stats(employee, month_data['date_columns'])
+            employee_with_stats = employee.copy()
+            employee_with_stats['stats'] = stats
+            valid_employees.append(employee_with_stats)
+        
+        # Calculate monthly summary
+        monthly_summary = calculate_monthly_summary(month_data)
+        
+        # Get current month index for navigation
+        current_month_index = available_months.index(current_month) if current_month in available_months else len(available_months) - 1
+        
+        logger.info(f"Displaying {len(valid_employees)} unique employees for month: {current_month}")
+        
+        return render_template('minimal_dashboard.html',
+                             employees=valid_employees,
+                             current_month=current_month,
+                             monthly_summary=monthly_summary,
+                             available_months=available_months,
+                             current_month_index=current_month_index,
+                             metadata=metadata)
+        
     except Exception as e:
         logger.error(f"Error in index route: {e}")
         logger.error(f"Traceback: {traceback.format_exc()}")
@@ -413,46 +381,63 @@ def index():
 
 @app.route('/calendar')
 def calendar_view():
-    """Calendar view page"""
+    """Excel-like calendar view"""
     try:
         combined_data, monthly_data, metadata = load_data_from_repo()
         
         if not combined_data:
             return redirect(url_for('index'))
         
-        # Get current month or first available month
+        # Get current month - DEFAULT TO LATEST MONTH
         current_month = request.args.get('month')
+        available_months = list(monthly_data.keys())
+        
         if not current_month or current_month not in monthly_data:
-            current_month = list(monthly_data.keys())[0]
+            current_month = available_months[-1] if available_months else None
+        
+        if not current_month:
+            return redirect(url_for('index'))
         
         month_data = monthly_data[current_month]
         
-        return render_template('calendar_view.html',
-                             month_data=month_data,
+        # Filter out duplicate employees
+        unique_employees = []
+        seen_names = set()
+        
+        for employee in month_data['employees']:
+            emp_name = employee['name'].strip()
+            
+            if (emp_name and 
+                emp_name.lower() != 'employee name' and
+                emp_name not in seen_names):
+                seen_names.add(emp_name)
+                unique_employees.append(employee)
+        
+        # Update month_data with unique employees
+        month_data_clean = month_data.copy()
+        month_data_clean['employees'] = unique_employees
+        
+        # Calculate monthly statistics for calendar view
+        monthly_stats = calculate_monthly_summary(month_data_clean)
+        
+        # Get navigation info
+        current_month_index = available_months.index(current_month)
+        can_go_previous = current_month_index > 0
+        can_go_next = current_month_index < len(available_months) - 1
+        
+        logger.info(f"Calendar view: {len(unique_employees)} unique employees for month: {current_month}")
+        
+        return render_template('excel_calendar.html',
+                             month_data=month_data_clean,
                              current_month=current_month,
-                             available_months=list(monthly_data.keys()),
-                             wfo_config=WFO_STATUS_CONFIG)
+                             monthly_stats=monthly_stats,
+                             available_months=available_months,
+                             current_month_index=current_month_index,
+                             can_go_previous=can_go_previous,
+                             can_go_next=can_go_next)
+        
     except Exception as e:
         logger.error(f"Error in calendar route: {e}")
-        return redirect(url_for('index'))
-
-@app.route('/reports')
-def reports_view():
-    """Reports and analytics page"""
-    try:
-        combined_data, monthly_data, metadata = load_data_from_repo()
-        
-        if not combined_data:
-            return redirect(url_for('index'))
-        
-        analytics = calculate_wfo_analytics(combined_data)
-        
-        return render_template('reports.html',
-                             analytics=analytics,
-                             metadata=metadata,
-                             monthly_data=monthly_data)
-    except Exception as e:
-        logger.error(f"Error in reports route: {e}")
         return redirect(url_for('index'))
 
 @app.route('/api/refresh')
@@ -462,18 +447,21 @@ def refresh_data():
         combined_data, monthly_data, metadata = load_data_from_repo()
         
         if combined_data:
-            analytics = calculate_wfo_analytics(combined_data)
             return jsonify({
                 'status': 'success',
                 'total_employees': metadata.get('total_employees', 0),
                 'total_sheets': metadata.get('total_sheets', 0),
                 'last_modified': metadata.get('last_modified', 'Unknown'),
                 'source_file': metadata.get('source_file', 'Unknown'),
-                'overall_stats': analytics.get('overall_stats', {}),
+                'available_months': metadata.get('sheet_names', []),
+                'latest_month': metadata.get('sheet_names', [])[-1] if metadata.get('sheet_names') else None,
                 'refreshed_at': datetime.now().isoformat()
             })
         else:
-            return jsonify({'status': 'no_data', 'message': 'No Excel file found in repository'}), 404
+            return jsonify({
+                'status': 'no_data', 
+                'message': 'No Excel file found in repository'
+            }), 404
             
     except Exception as e:
         logger.error(f"Error refreshing data: {e}")
@@ -490,7 +478,49 @@ def file_info():
                 'file_info': file_info
             })
         else:
-            return jsonify({'status': 'no_file', 'message': 'No Excel file found'}), 404
+            return jsonify({
+                'status': 'no_file', 
+                'message': 'No Excel file found'
+            }), 404
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/debug/<employee_name>')
+def debug_employee_data(employee_name):
+    """Debug endpoint to check specific employee data"""
+    try:
+        combined_data, monthly_data, metadata = load_data_from_repo()
+        
+        if not combined_data:
+            return jsonify({'status': 'no_data'}), 404
+        
+        debug_info = {
+            'employee_name': employee_name,
+            'found_in_sheets': [],
+            'raw_data': {}
+        }
+        
+        for sheet_data in combined_data:
+            sheet_name = sheet_data['sheet_name']
+            for employee in sheet_data['employees']:
+                if employee['name'].lower() == employee_name.lower():
+                    debug_info['found_in_sheets'].append(sheet_name)
+                    debug_info['raw_data'][sheet_name] = {
+                        'name': employee['name'],
+                        'person_id': employee['person_id'],
+                        'department': employee['department'],
+                        'team_manager': employee['team_manager'],
+                        'shift_timings': employee['shift_timings'],
+                        'daily_status_count': len(employee['daily_status']),
+                        'daily_status_sample': dict(list(employee['daily_status'].items())[:5]),
+                        'all_daily_status': employee['daily_status']
+                    }
+        
+        return jsonify({
+            'status': 'success',
+            'debug_info': debug_info
+        })
+        
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
@@ -501,6 +531,18 @@ def health_check():
         file_info = find_latest_excel_file()
         combined_data, monthly_data, metadata = load_data_from_repo()
         
+        # Add debug info about all employees
+        employee_debug = {}
+        if combined_data:
+            for sheet_data in combined_data:
+                sheet_name = sheet_data['sheet_name']
+                employee_debug[sheet_name] = []
+                for emp in sheet_data['employees']:
+                    employee_debug[sheet_name].append({
+                        'name': emp['name'],
+                        'status_count': len(emp['daily_status'])
+                    })
+        
         return jsonify({
             'status': 'healthy', 
             'timestamp': datetime.now().isoformat(),
@@ -508,7 +550,8 @@ def health_check():
             'has_processed_data': combined_data is not None,
             'file_info': file_info,
             'data_info': metadata if combined_data else None,
-            'version': '2.0.0-repo',
+            'employee_debug': employee_debug,
+            'version': '2.1.0-clean',
             'data_folder': DATA_FOLDER
         })
     except Exception as e:
@@ -519,9 +562,7 @@ def health_check():
         }), 500
 
 if __name__ == '__main__':
-    # Get port from environment variable (Azure sets this)
     port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Starting Flask app on port {port}")
+    logger.info(f"Starting WFO Tracker v2.1 on port {port}")
     logger.info(f"Data folder: {DATA_FOLDER}")
-    logger.info(f"Excel file pattern: {EXCEL_FILE_PATTERN}")
     app.run(host='0.0.0.0', port=port, debug=False)
