@@ -183,7 +183,7 @@ def process_monthly_sheet(df, sheet_name):
         employee_data = []
         date_columns = []
         
-        # Find date columns (they start from column 5 onwards)
+        # FIXED: Find date columns (they start from column 5 onwards)
         for col_idx, col_name in enumerate(df.columns):
             if col_idx >= 5:
                 date_columns.append(str(col_name))
@@ -193,8 +193,8 @@ def process_monthly_sheet(df, sheet_name):
         # FIXED: Use sheet-specific seen_employees to avoid cross-sheet conflicts
         seen_employees = set()
         
-        # Process ALL rows starting from index 2 (row 3 in Excel)
-        for idx in range(2, len(df)):
+        # FIXED: Process ALL rows starting from index 1 (row 2 in Excel) - Lokesh is in row 1!
+        for idx in range(1, len(df)):
             try:
                 row = df.iloc[idx]
                 
@@ -206,7 +206,7 @@ def process_monthly_sheet(df, sheet_name):
                     
                 emp_name = str(emp_name_raw).strip()
                 
-                # Enhanced debug for ALL employees
+                # Enhanced debug for ALL employees (starting from row 1)
                 logger.info(f"\n--- PROCESSING ROW {idx} (Excel row {idx+1}) ---")
                 logger.info(f"Employee Name: '{emp_name}'")
                 logger.info(f"Person ID: '{row.iloc[1] if pd.notna(row.iloc[1]) else 'NaN'}'")
@@ -214,7 +214,7 @@ def process_monthly_sheet(df, sheet_name):
                 logger.info(f"Team Manager: '{row.iloc[3] if pd.notna(row.iloc[3]) else 'NaN'}'")
                 logger.info(f"Shift Timings: '{row.iloc[4] if pd.notna(row.iloc[4]) else 'NaN'}'")
                 
-                # FIXED: More lenient name validation
+                # FIXED: More lenient name validation - removed summary row detection
                 if (not emp_name or 
                     emp_name == '' or 
                     emp_name.lower() == 'employee name' or
@@ -247,7 +247,7 @@ def process_monthly_sheet(df, sheet_name):
                     'daily_status': {}
                 }
                 
-                # Extract daily status
+                # FIXED: Extract daily status - handle empty cells better
                 status_count = 0
                 logger.info(f"Extracting daily statuses for {emp_name}:")
                 
@@ -255,15 +255,24 @@ def process_monthly_sheet(df, sheet_name):
                     data_col_idx = col_idx + 5  # Date columns start at index 5
                     if data_col_idx < len(row):
                         status = row.iloc[data_col_idx]
+                        
+                        # SPECIAL DEBUG FOR LOKESH - show ALL cells
+                        if 'lokesh' in emp_name.lower():
+                            logger.info(f"  LOKESH DEBUG - Col {data_col_idx} ({date_col}): raw='{status}', isna={pd.isna(status)}")
+                        
                         if pd.notna(status):
                             clean_status = str(status).strip()
-                            if clean_status and clean_status != 'nan' and clean_status != '':
+                            if clean_status and clean_status != 'nan' and clean_status != '' and clean_status.upper() != 'NAN':
                                 employee_info['daily_status'][str(date_col)] = clean_status
                                 status_count += 1
                                 
                                 # Log first 10 statuses for debugging
                                 if status_count <= 10:
                                     logger.info(f"  {date_col}: '{clean_status}'")
+                        else:
+                            # SPECIAL DEBUG FOR LOKESH - show empty cells too
+                            if 'lokesh' in emp_name.lower():
+                                logger.info(f"  LOKESH DEBUG - EMPTY cell at col {data_col_idx} ({date_col})")
                 
                 logger.info(f"Total statuses for {emp_name}: {status_count}")
                 
@@ -666,7 +675,7 @@ def health_check():
             'file_info': file_info,
             'data_info': metadata if combined_data else None,
             'employee_debug': employee_debug,
-            'version': '2.1.1-lokesh-fix',
+            'version': '2.1.4-lokesh-final-fix',
             'data_folder': DATA_FOLDER
         })
     except Exception as e:
@@ -683,6 +692,6 @@ def static_files(filename):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Starting WFO Tracker v2.1.1-lokesh-fix on port {port}")
+    logger.info(f"Starting WFO Tracker v2.1.4-lokesh-final-fix on port {port}")
     logger.info(f"Data folder: {DATA_FOLDER}")
     app.run(host='0.0.0.0', port=port, debug=False)
