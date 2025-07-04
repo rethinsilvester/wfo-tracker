@@ -220,7 +220,24 @@ body {
     padding: 4px 8px;
     font-size: 0.8rem;
 }
+.company-logo {
+    height: 50px;
+    width: auto;
+    max-width: 200px;
+    object-fit: contain;
+}
 
+/* Responsive logo */
+@media (max-width: 768px) {
+    .company-logo {
+        height: 35px;
+        max-width: 150px;
+    }
+    
+    .header h1 {
+        font-size: 1.5rem;
+    }
+}
 .sl {
     background: #fff3cd;
     color: #856404;
@@ -269,6 +286,23 @@ body {
     font-size: 1.2rem;
 }
 
+.company-logo {
+    height: 50px;
+    width: auto;
+    max-width: 200px;
+    object-fit: contain;
+}
+/* Responsive logo */
+@media (max-width: 768px) {
+    .company-logo {
+        height: 35px;
+        max-width: 150px;
+    }
+    
+    .header h1 {
+        font-size: 1.5rem;
+    }
+}
 .summary-item {
     display: flex;
     justify-content: space-between;

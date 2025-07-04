@@ -29,6 +29,13 @@
             margin-bottom: 2rem;
         }
 
+        .company-logo {
+            height: 50px;
+            width: auto;
+            max-width: 200px;
+            object-fit: contain;
+        }
+
         .employee-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -333,12 +340,12 @@
             .employee-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .quick-stats {
                 flex-direction: column;
                 gap: 0.5rem;
             }
-            
+
             .stat-item {
                 display: flex;
                 justify-content: space-between;
@@ -360,6 +367,15 @@
             .breakdown-number {
                 font-size: 1.2rem;
             }
+
+            .company-logo {
+                height: 35px;
+                max-width: 150px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
@@ -369,8 +385,9 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-md-8">
-                    <h1 class="mb-0">
-                        <i class="fas fa-users"></i> WFO Employee Dashboard
+                    <h1 class="mb-0 d-flex align-items-center">
+                        <img src="/static/images/Mouser_logo.png" alt="Company Logo" class="company-logo me-3">
+                        UV-WCS WFO Dashboard
                     </h1>
                     <p class="mb-0 mt-1 opacity-75">Click on any employee to view detailed monthly data</p>
                 </div>
@@ -407,7 +424,7 @@
                     <div class="employee-title">
                         {{ employee.department }} • {{ employee.team_manager }}
                     </div>
-                    
+
                     <div class="quick-stats">
                         <div class="stat-item">
                             <div class="stat-number wfo-stat">{{ employee.stats.wfo_days }}</div>
@@ -434,7 +451,7 @@
                         <div class="details-title">Monthly Breakdown</div>
                         <button class="close-details" onclick="closeEmployeeDetails('{{ employee.name }}')">&times;</button>
                     </div>
-                    
+
                     <div class="monthly-breakdown">
                         <div class="breakdown-card">
                             <div class="breakdown-number wfo-stat">{{ employee.stats.wfo_days }}</div>
@@ -518,7 +535,7 @@
             <h3 class="summary-title">
                 <i class="fas fa-chart-pie"></i> Monthly Summary - {{ current_month }}
             </h3>
-            
+
             <div class="overall-stats">
                 <div class="overall-stat-card">
                     <div class="overall-stat-number wfo-stat">{{ monthly_summary.overall_wfo_percentage }}%</div>
@@ -560,21 +577,21 @@
             const container = widget.parentElement;
             const detailsId = 'details-' + employeeName.replace(/\s+/g, '-');
             const detailsElement = document.getElementById(detailsId);
-            
+
             // Close all other open details first
             document.querySelectorAll('.employee-details.show').forEach(details => {
                 if (details.id !== detailsId) {
                     details.classList.remove('show');
                 }
             });
-            
+
             // Remove active class from all widgets
             document.querySelectorAll('.employee-widget.active').forEach(w => {
                 if (w !== widget) {
                     w.classList.remove('active');
                 }
             });
-            
+
             // Toggle current details
             if (detailsElement.classList.contains('show')) {
                 detailsElement.classList.remove('show');
@@ -584,12 +601,12 @@
                 detailsElement.classList.add('show');
                 widget.classList.add('active');
                 currentEmployeeDetails = detailsElement;
-                
+
                 // Scroll to details smoothly
                 setTimeout(() => {
-                    detailsElement.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'nearest' 
+                    detailsElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest'
                     });
                 }, 100);
             }
@@ -599,14 +616,14 @@
             const detailsId = 'details-' + employeeName.replace(/\s+/g, '-');
             const detailsElement = document.getElementById(detailsId);
             detailsElement.classList.remove('show');
-            
+
             // Remove active class from widget
             const container = detailsElement.parentElement;
             const widget = container.querySelector('.employee-widget');
             if (widget) {
                 widget.classList.remove('active');
             }
-            
+
             currentEmployeeDetails = null;
         }
 
@@ -632,10 +649,10 @@
         function refreshData() {
             const btn = document.querySelector('.refresh-btn');
             const originalHTML = btn.innerHTML;
-            
+
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             btn.disabled = true;
-            
+
             fetch('/api/refresh')
                 .then(response => response.json())
                 .then(data => {
@@ -657,7 +674,7 @@
 
         // Close details when clicking outside
         document.addEventListener('click', function(event) {
-            if (!event.target.closest('.employee-widget-container') && 
+            if (!event.target.closest('.employee-widget-container') &&
                 currentEmployeeDetails) {
                 currentEmployeeDetails.classList.remove('show');
                 document.querySelectorAll('.employee-widget').forEach(w => w.classList.remove('active'));
