@@ -189,6 +189,36 @@
             color: #6c757d;
         }
 
+        /* Ensure status colors override weekend styling when there's actual data */
+        .status-cell.status-wfo {
+            background-color: var(--wfo-color) !important;
+            color: white !important;
+        }
+
+        .status-cell.status-wfh {
+            background-color: var(--wfh-color) !important;
+            color: white !important;
+        }
+
+        .status-cell.status-sl,
+        .status-cell.status-sick-leave {
+            background-color: var(--sick-leave-color) !important;
+            color: white !important;
+        }
+
+        .status-cell.status-leave,
+        .status-cell.status-planned-leave,
+        .status-cell.status-pl {
+            background-color: var(--planned-leave-color) !important;
+            color: white !important;
+        }
+
+        .status-cell.status-holiday,
+        .status-cell.status-india-holiday {
+            background-color: var(--holiday-color) !important;
+            color: white !important;
+        }
+
         .weekend-header {
             background-color: #e9ecef;
             color: #6c757d;
@@ -486,23 +516,39 @@
                                 {% endif %}
                                 
                                 {% set status = employee.daily_status.get(date_col, '') %}
-                                {% set status_class = 'status-' + status.lower().replace(' ', '-').replace('planned', 'planned') if status else 'status-empty' %}
-                                {% if status.upper() == 'PL' %}
+                                {% set status_lower = status.lower().strip() if status else '' %}
+                                {% set status_class = '' %}
+                                
+                                {# Determine status class based on actual status value #}
+                                {% if status_lower == 'wfo' %}
+                                    {% set status_class = 'status-wfo' %}
+                                {% elif status_lower == 'wfh' %}
+                                    {% set status_class = 'status-wfh' %}
+                                {% elif status_lower in ['sl', 'sick leave'] %}
+                                    {% set status_class = 'status-sl' %}
+                                {% elif status_lower in ['leave', 'planned leave', 'pl'] %}
                                     {% set status_class = 'status-planned-leave' %}
+                                {% elif status_lower in ['holiday', 'india holiday'] %}
+                                    {% set status_class = 'status-holiday' %}
+                                {% else %}
+                                    {% set status_class = 'status-empty' %}
                                 {% endif %}
-                                <td class="status-cell {{ status_class }} {% if is_weekend %}weekend-cell{% endif %}"
+                                
+                                <td class="status-cell {{ status_class }} {% if is_weekend and not status %}weekend-cell{% endif %}"
+                                    data-status="{{ status }}"
+                                    data-is-weekend="{{ is_weekend }}"
                                     onclick="showStatusDetails('{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
                                     onmouseenter="showTooltip(event, '{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
                                     onmouseleave="hideTooltip()">
-                                    {% if status == 'WFO' %}
+                                    {% if status_lower == 'wfo' %}
                                         <i class="fas fa-building"></i>
-                                    {% elif status == 'WFH' %}
+                                    {% elif status_lower == 'wfh' %}
                                         <i class="fas fa-home"></i>
-                                    {% elif status == 'SL' or status == 'Sick Leave' %}
+                                    {% elif status_lower in ['sl', 'sick leave'] %}
                                         <i class="fas fa-user-injured"></i>
-                                    {% elif status in ['Leave', 'Planned Leave', 'PL'] %}
+                                    {% elif status_lower in ['leave', 'planned leave', 'pl'] %}
                                         <i class="fas fa-calendar-minus"></i>
-                                    {% elif status == 'India Holiday' %}
+                                    {% elif status_lower in ['holiday', 'india holiday'] %}
                                         <i class="fas fa-calendar-times"></i>
                                     {% else %}
                                         <span style="opacity: 0.3;">-</span>
@@ -616,7 +662,7 @@
                             dayNameElement.textContent = dayNames[dayOfWeek];
                         }
                         
-                        // Update weekend styling
+                        // Update weekend styling for headers
                         if (isWeekend) {
                             header.classList.add('weekend-header');
                         } else {
@@ -631,12 +677,68 @@
                             rows.forEach(function(row) {
                                 const cell = row.children[columnIndex];
                                 if (cell && isWeekend) {
-                                    // Always apply weekend styling to Saturday and Sunday columns
-                                    cell.classList.add('weekend-cell');
+                                    const status = cell.getAttribute('data-status');
+                                    // Only apply weekend styling if there's no status data
+                                    if (!status || status.trim() === '') {
+                                        cell.classList.add('weekend-cell');
+                                        cell.style.backgroundColor = '#f8f9fa';
+                                        cell.style.color = '#6c757d';
+                                    } else {
+                                        // Ensure status colors are preserved for weekend days with data
+                                        cell.classList.remove('weekend-cell');
+                                    }
                                 }
                             });
                         }
                     }
+                }
+            });
+            
+            // Additional pass to ensure all status cells have correct colors
+            const statusCells = document.querySelectorAll('.status-cell[data-status]');
+            statusCells.forEach(function(cell) {
+                const status = cell.getAttribute('data-status');
+                const isWeekend = cell.getAttribute('data-is-weekend') === 'True';
+                
+                if (status && status.trim() !== '') {
+                    const statusLower = status.toLowerCase().trim();
+                    
+                    // Apply correct colors based on status
+                    switch(statusLower) {
+                        case 'wfo':
+                            cell.style.backgroundColor = '#28a745';
+                            cell.style.color = 'white';
+                            break;
+                        case 'wfh':
+                            cell.style.backgroundColor = '#007bff';
+                            cell.style.color = 'white';
+                            break;
+                        case 'sl':
+                        case 'sick leave':
+                            cell.style.backgroundColor = '#dc3545';
+                            cell.style.color = 'white';
+                            break;
+                        case 'leave':
+                        case 'planned leave':
+                        case 'pl':
+                            cell.style.backgroundColor = '#fd7e14';
+                            cell.style.color = 'white';
+                            break;
+                        case 'holiday':
+                        case 'india holiday':
+                            cell.style.backgroundColor = '#6c757d';
+                            cell.style.color = 'white';
+                            break;
+                        default:
+                            if (isWeekend) {
+                                cell.style.backgroundColor = '#f8f9fa';
+                                cell.style.color = '#6c757d';
+                            }
+                    }
+                } else if (isWeekend) {
+                    // Empty weekend cells should be greyed out
+                    cell.style.backgroundColor = '#f8f9fa';
+                    cell.style.color = '#6c757d';
                 }
             });
         });
