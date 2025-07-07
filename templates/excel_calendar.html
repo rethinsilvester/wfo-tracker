@@ -190,12 +190,13 @@
         }
 
         .weekend-header {
-            background-color: #ffe6e6;
-            color: #d63384;
+            background-color: #e9ecef;
+            color: #6c757d;
         }
 
         .weekend-cell {
-            background-color: #fff5f5;
+            background-color: #f8f9fa;
+            color: #6c757d;
         }
 
         .table-wrapper {
@@ -489,7 +490,7 @@
                                 {% if status.upper() == 'PL' %}
                                     {% set status_class = 'status-planned-leave' %}
                                 {% endif %}
-                                <td class="status-cell {{ status_class }} {% if is_weekend and not status %}weekend-cell{% endif %}"
+                                <td class="status-cell {{ status_class }} {% if is_weekend %}weekend-cell{% endif %}"
                                     onclick="showStatusDetails('{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
                                     onmouseenter="showTooltip(event, '{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
                                     onmouseleave="hideTooltip()">
@@ -629,7 +630,8 @@
                             const rows = tbody.querySelectorAll('tr');
                             rows.forEach(function(row) {
                                 const cell = row.children[columnIndex];
-                                if (cell && isWeekend && !cell.textContent.trim()) {
+                                if (cell && isWeekend) {
+                                    // Always apply weekend styling to Saturday and Sunday columns
                                     cell.classList.add('weekend-cell');
                                 }
                             });

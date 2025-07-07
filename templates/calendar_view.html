@@ -190,12 +190,13 @@
         }
 
         .weekend-header {
-            background-color: #ffe6e6;
-            color: #d63384;
+            background-color: #e9ecef;
+            color: #6c757d;
         }
 
         .weekend-cell {
-            background-color: #fff5f5;
+            background-color: #f8f9fa;
+            color: #6c757d;
         }
 
         .table-wrapper {
@@ -403,29 +404,39 @@
                         <tr>
                             <th class="employee-header">Employee</th>
                             {% for date_col in month_data.date_columns %}
-                                {% set date_obj = date_col %}
-                                {% if date_col is string %}
-                                    {% set date_parts = date_col.split('-') %}
+                                {% set date_str = date_col|string %}
+                                {% if '-' in date_str %}
+                                    {# Parse date string in format YYYY-MM-DD #}
+                                    {% set date_parts = date_str.split('-') %}
                                     {% if date_parts|length >= 3 %}
                                         {% set year = date_parts[0]|int %}
                                         {% set month = date_parts[1]|int %}
                                         {% set day = date_parts[2].split(' ')[0]|int %}
                                         
-                                        {# Calculate day of week using Zeller's congruence #}
-                                        {% set month_calc = month %}
-                                        {% set year_calc = year %}
-                                        {% if month < 3 %}
-                                            {% set month_calc = month + 12 %}
-                                            {% set year_calc = year - 1 %}
-                                        {% endif %}
-                                        {% set k = year_calc % 100 %}
-                                        {% set j = year_calc // 100 %}
-                                        {% set h = (day + ((13 * (month_calc + 1)) // 5) + k + (k // 4) + (j // 4) - 2 * j) % 7 %}
-                                        {# Convert to Sunday=0 format #}
-                                        {% set day_of_week = (h + 5) % 7 %}
+                                        {# Use JavaScript Date calculation which is more reliable #}
+                                        {# Create date and get day of week (0=Sunday, 1=Monday, etc.) #}
+                                        <script>
+                                            // This will be executed for each date header
+                                            (function() {
+                                                const date = new Date({{ year }}, {{ month - 1 }}, {{ day }});
+                                                const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday, etc.
+                                                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                                                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                                                
+                                                // Store these values for use in the template
+                                                window.dateInfo = window.dateInfo || {};
+                                                window.dateInfo['{{ date_col }}'] = {
+                                                    day: {{ day }},
+                                                    dayName: dayNames[dayOfWeek],
+                                                    isWeekend: isWeekend
+                                                };
+                                            })();
+                                        </script>
                                         
+                                        {# For now, use a simplified approach that works with Jinja #}
+                                        {% set day_of_week = ((day + ((13 * ((month + 9) % 12 + 1)) // 5) + (year % 100) + ((year % 100) // 4) + (year // 100 // 4) - 2 * (year // 100)) % 7) %}
                                         {% set is_weekend = (day_of_week == 0 or day_of_week == 6) %}
-                                        {% set day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] %}
+                                        {% set day_names = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
                                         {% set day_name = day_names[day_of_week] %}
                                     {% else %}
                                         {% set day = loop.index %}
@@ -438,9 +449,11 @@
                                     {% set day_name = '' %}
                                 {% endif %}
                                 
-                                <th class="date-header {% if is_weekend %}weekend-header{% endif %}">
+                                <th class="date-header {% if is_weekend %}weekend-header{% endif %}" 
+                                    data-date="{{ date_col }}" 
+                                    data-day="{{ day }}">
                                     <div>{{ day }}</div>
-                                    <div class="day-header">{{ day_name }}</div>
+                                    <div class="day-header" id="day-name-{{ loop.index }}">{{ day_name }}</div>
                                 </th>
                             {% endfor %}
                         </tr>
@@ -456,27 +469,14 @@
                                 </div>
                             </td>
                             {% for date_col in month_data.date_columns %}
-                                {% set date_obj = date_col %}
-                                {% if date_col is string %}
-                                    {% set date_parts = date_col.split('-') %}
+                                {% set date_str = date_col|string %}
+                                {% if '-' in date_str %}
+                                    {% set date_parts = date_str.split('-') %}
                                     {% if date_parts|length >= 3 %}
                                         {% set year = date_parts[0]|int %}
                                         {% set month = date_parts[1]|int %}
                                         {% set day = date_parts[2].split(' ')[0]|int %}
-                                        
-                                        {# Calculate day of week using Zeller's congruence #}
-                                        {% set month_calc = month %}
-                                        {% set year_calc = year %}
-                                        {% if month < 3 %}
-                                            {% set month_calc = month + 12 %}
-                                            {% set year_calc = year - 1 %}
-                                        {% endif %}
-                                        {% set k = year_calc % 100 %}
-                                        {% set j = year_calc // 100 %}
-                                        {% set h = (day + ((13 * (month_calc + 1)) // 5) + k + (k // 4) + (j // 4) - 2 * j) % 7 %}
-                                        {# Convert to Sunday=0 format #}
-                                        {% set day_of_week = (h + 5) % 7 %}
-                                        
+                                        {% set day_of_week = ((day + ((13 * ((month + 9) % 12 + 1)) // 5) + (year % 100) + ((year % 100) // 4) + (year // 100 // 4) - 2 * (year // 100)) % 7) %}
                                         {% set is_weekend = (day_of_week == 0 or day_of_week == 6) %}
                                     {% else %}
                                         {% set is_weekend = false %}
@@ -490,7 +490,7 @@
                                 {% if status.upper() == 'PL' %}
                                     {% set status_class = 'status-planned-leave' %}
                                 {% endif %}
-                                <td class="status-cell {{ status_class }} {% if is_weekend and not status %}weekend-cell{% endif %}"
+                                <td class="status-cell {{ status_class }} {% if is_weekend %}weekend-cell{% endif %}"
                                     onclick="showStatusDetails('{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
                                     onmouseenter="showTooltip(event, '{{ employee.name }}', '{{ date_col }}', '{{ status }}')"
                                     onmouseleave="hideTooltip()">
@@ -588,6 +588,58 @@
         let availableMonths = {{ available_months|tojson if available_months else '[]' }};
         let currentMonthIndex = {{ current_month_index if current_month_index else 0 }};
         let tooltip = document.getElementById('tooltip');
+
+        // Fix day names using JavaScript after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fix all date headers with correct day names
+            const dateHeaders = document.querySelectorAll('.date-header[data-date]');
+            dateHeaders.forEach(function(header) {
+                const dateStr = header.getAttribute('data-date');
+                const day = parseInt(header.getAttribute('data-day'));
+                
+                // Parse the date string (assuming YYYY-MM-DD format)
+                if (dateStr.includes('-')) {
+                    const parts = dateStr.split('-');
+                    if (parts.length >= 3) {
+                        const year = parseInt(parts[0]);
+                        const month = parseInt(parts[1]) - 1; // JavaScript months are 0-indexed
+                        const dayNum = parseInt(parts[2].split(' ')[0]);
+                        
+                        const date = new Date(year, month, dayNum);
+                        const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday, etc.
+                        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                        
+                        // Update the day name in the header
+                        const dayNameElement = header.querySelector('.day-header');
+                        if (dayNameElement) {
+                            dayNameElement.textContent = dayNames[dayOfWeek];
+                        }
+                        
+                        // Update weekend styling
+                        if (isWeekend) {
+                            header.classList.add('weekend-header');
+                        } else {
+                            header.classList.remove('weekend-header');
+                        }
+                        
+                        // Update corresponding cells in the same column
+                        const columnIndex = Array.from(header.parentNode.children).indexOf(header);
+                        const tbody = header.closest('table').querySelector('tbody');
+                        if (tbody) {
+                            const rows = tbody.querySelectorAll('tr');
+                            rows.forEach(function(row) {
+                                const cell = row.children[columnIndex];
+                                if (cell && isWeekend) {
+                                    // Always apply weekend styling to Saturday and Sunday columns
+                                    cell.classList.add('weekend-cell');
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+        });
 
         function previousMonth() {
             if (currentMonthIndex > 0) {
