@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WFO Tracker - Team Selection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            --light-bg: #f8f9fa;
+            --card-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 2rem;
+        }
+
+        .header-section {
+            text-align: center;
+            color: white;
+            margin-bottom: 3rem;
+        }
+
+        .main-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .main-subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 0;
+        }
+
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .team-card {
+            background: white;
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            border: 3px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .team-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: var(--primary-gradient);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .team-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+            border-color: #667eea;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .team-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .team-card.wcs-dev::before {
+            background: var(--secondary-gradient);
+        }
+
+        .team-card.wcs-dev:hover {
+            border-color: #28a745;
+        }
+
+        .team-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .team-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            margin-right: 1rem;
+            object-fit: contain;
+            background: #f8f9fa;
+            padding: 0.5rem;
+        }
+
+        .team-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #343a40;
+            margin: 0;
+        }
+
+        .team-description {
+            color: #6c757d;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .team-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #667eea;
+            display: block;
+        }
+
+        .wcs-dev .stat-number {
+            color: #28a745;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .team-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            text-decoration: none;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .btn-primary-custom {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-outline-custom {
+            background: transparent;
+            color: #667eea;
+            border-color: #667eea;
+        }
+
+        .btn-outline-custom:hover {
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+        }
+
+        .wcs-dev .btn-primary-custom {
+            background: var(--secondary-gradient);
+        }
+
+        .wcs-dev .btn-primary-custom:hover {
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .wcs-dev .btn-outline-custom {
+            color: #28a745;
+            border-color: #28a745;
+        }
+
+        .wcs-dev .btn-outline-custom:hover {
+            background: #28a745;
+        }
+
+        .footer-section {
+            text-align: center;
+            color: white;
+            opacity: 0.8;
+            margin-top: 2rem;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #28a745;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+        }
+
+        .status-indicator.offline {
+            background: #dc3545;
+            box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            .teams-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .main-title {
+                font-size: 2rem;
+            }
+
+            .team-card {
+                padding: 1.5rem;
+            }
+
+            .team-actions {
+                flex-direction: column;
+            }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header Section -->
+        <div class="header-section">
+            <h1 class="main-title">
+                <i class="fas fa-users"></i> WFO Tracker
+            </h1>
+            <p class="main-subtitle">Choose your team to access attendance tracking and calendar views</p>
+        </div>
+
+        <!-- Teams Grid -->
+        <div class="teams-grid">
+            {% for team_id, config in teams.items() %}
+            <div class="team-card {{ team_id }}" onclick="selectTeam('{{ team_id }}')">
+                <div class="status-indicator" id="status-{{ team_id }}"></div>
+                
+                <div class="team-header">
+                    <img src="{{ config.logo }}" alt="{{ config.name }} Logo" class="team-logo" 
+                         onerror="this.src='/static/images/default-team.png'">
+                    <h3 class="team-title">{{ config.display_name }}</h3>
+                </div>
+
+                <p class="team-description">{{ config.description }}</p>
+
+                <div class="team-stats" id="stats-{{ team_id }}">
+                    <div class="stat-item">
+                        <span class="stat-number" id="employees-{{ team_id }}">
+                            {% if team_stats and team_stats[team_id] %}
+                                {{ team_stats[team_id].employees }}
+                            {% else %}
+                                --
+                            {% endif %}
+                        </span>
+                        <span class="stat-label">Employees</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="months-{{ team_id }}">
+                            {% if team_stats and team_stats[team_id] %}
+                                {{ team_stats[team_id].months }}
+                            {% else %}
+                                --
+                            {% endif %}
+                        </span>
+                        <span class="stat-label">Months</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="updated-{{ team_id }}">
+                            {% if team_stats and team_stats[team_id] and team_stats[team_id].last_updated %}
+                                {{ team_stats[team_id].last_updated.split('T')[0] }}
+                            {% else %}
+                                --
+                            {% endif %}
+                        </span>
+                        <span class="stat-label">Last Updated</span>
+                    </div>
+                </div>
+
+                <div class="team-actions">
+                    <a href="/{{ team_id }}/" class="action-btn btn-primary-custom">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                    <a href="/{{ team_id }}/calendar" class="action-btn btn-outline-custom">
+                        <i class="fas fa-calendar-alt"></i> Calendar
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Footer Section -->
+        <div class="footer-section">
+            <p>
+                <i class="fas fa-info-circle"></i> 
+                Multi-team attendance tracking system
+            </p>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let teamData = {};
+
+        // Load team statistics on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAllTeamStats();
+        });
+
+        async function loadAllTeamStats() {
+            const teams = {{ teams.keys()|list|tojson }};
+            
+            for (const teamId of teams) {
+                try {
+                    const response = await fetch(`/api/${teamId}/refresh`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        updateTeamStats(teamId, data);
+                        updateStatusIndicator(teamId, true);
+                    } else {
+                        updateStatusIndicator(teamId, false);
+                    }
+                } catch (error) {
+                    console.error(`Error loading stats for ${teamId}:`, error);
+                    updateStatusIndicator(teamId, false);
+                }
+            }
+        }
+
+        function updateTeamStats(teamId, data) {
+            // Update with actual API data
+            const employeesEl = document.getElementById(`employees-${teamId}`);
+            const monthsEl = document.getElementById(`months-${teamId}`);
+            const updatedEl = document.getElementById(`updated-${teamId}`);
+
+            if (employeesEl && data.total_employees) {
+                employeesEl.textContent = data.total_employees;
+            }
+            
+            if (monthsEl && data.total_sheets) {
+                monthsEl.textContent = data.total_sheets;
+            }
+            
+            if (updatedEl && data.last_modified) {
+                const date = new Date(data.last_modified);
+                updatedEl.textContent = date.toLocaleDateString();
+            }
+        }
+
+        function updateStatusIndicator(teamId, isOnline) {
+            const indicator = document.getElementById(`status-${teamId}`);
+            if (indicator) {
+                indicator.className = `status-indicator ${isOnline ? '' : 'offline'}`;
+            }
+        }
+
+        function selectTeam(teamId) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+            
+            // Add a small delay for better UX
+            setTimeout(() => {
+                window.location.href = `/${teamId}/`;
+            }, 500);
+        }
+
+        // Add click handlers for action buttons to prevent event bubbling
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.action-btn')) {
+                e.stopPropagation();
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                loadingOverlay.style.display = 'flex';
+            }
+        });
+
+        // Handle team card clicks
+        document.querySelectorAll('.team-card').forEach(card => {
+            card.style.cursor = 'pointer';
+        });
+
+        // Auto-refresh team stats every 5 minutes
+        setInterval(loadAllTeamStats, 5 * 60 * 1000);
+    </script>
+</body>
+</html>

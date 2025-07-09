@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WFO Tracker - Calendar View</title>
+    <title>{{ team_config.display_name if team_config else 'WFO Tracker' }} - Calendar View</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary-gradient: linear-gradient(135deg, {{ team_config.primary_color if team_config else '#667eea' }} 0%, {{ team_config.secondary_color if team_config else '#764ba2' }} 100%);
+            --primary-color: {{ team_config.primary_color if team_config else '#667eea' }};
             --wfo-color: #28a745;
             --wfh-color: #007bff;
             --sick-leave-color: #dc3545;
@@ -37,6 +38,14 @@
             object-fit: contain;
         }
 
+        .team-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            margin-left: 1rem;
+        }
+
         .calendar-container {
             background: white;
             border-radius: 10px;
@@ -50,7 +59,7 @@
             padding: 1rem;
             border-bottom: 2px solid var(--border-color);
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
         }
 
@@ -189,6 +198,16 @@
             color: #6c757d;
         }
 
+        .weekend-header {
+            background-color: #e9ecef;
+            color: #6c757d;
+        }
+
+        .weekend-cell {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+
         /* Ensure status colors override weekend styling when there's actual data */
         .status-cell.status-wfo {
             background-color: var(--wfo-color) !important;
@@ -217,16 +236,6 @@
         .status-cell.status-india-holiday {
             background-color: var(--holiday-color) !important;
             color: white !important;
-        }
-
-        .weekend-header {
-            background-color: #e9ecef;
-            color: #6c757d;
-        }
-
-        .weekend-cell {
-            background-color: #f8f9fa;
-            color: #6c757d;
         }
 
         .table-wrapper {
@@ -307,7 +316,12 @@
             transition: opacity 0.3s ease;
         }
 
-        .back-btn {
+        .nav-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
             background: rgba(255,255,255,0.2);
             color: white;
             border: none;
@@ -315,9 +329,12 @@
             border-radius: 5px;
             text-decoration: none;
             transition: background 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .back-btn:hover {
+        .nav-btn:hover {
             background: rgba(255,255,255,0.3);
             color: white;
             text-decoration: none;
@@ -352,6 +369,17 @@
             .header h1 {
                 font-size: 1.5rem;
             }
+
+            .nav-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .team-badge {
+                margin-left: 0;
+                margin-top: 0.5rem;
+                display: inline-block;
+            }
         }
     </style>
 </head>
@@ -361,16 +389,27 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-md-8">
-                    <h1 class="mb-0 d-flex align-items-center">
-                        <img src="/static/images/Mouser_logo.png" alt="Company Logo" class="company-logo me-3">
-                        UV-WCS WFO Calendar View
+                    <h1 class="mb-0 d-flex align-items-center flex-wrap">
+                        <img src="{{ team_config.logo if team_config else '/static/images/Mouser_logo.png' }}" 
+                             alt="{{ team_config.name if team_config else 'Company' }} Logo" 
+                             class="company-logo me-3"
+                             onerror="this.src='/static/images/default-team.png'">
+                        <span>{{ team_config.display_name if team_config else 'WFO Calendar View' }}</span>
+                        {% if team_config %}
+                        <span class="team-badge">{{ team_config.name }}</span>
+                        {% endif %}
                     </h1>
                     <p class="mb-0 mt-1 opacity-75">Excel-like monthly attendance tracking</p>
                 </div>
                 <div class="col-md-4 text-end">
-                    <a href="/" class="back-btn">
-                        <i class="fas fa-arrow-left"></i> Back to Dashboard
-                    </a>
+                    <div class="nav-buttons">
+                        <a href="/" class="nav-btn">
+                            <i class="fas fa-users"></i> All Teams
+                        </a>
+                        <a href="/{{ team_id if team_id else 'uv-wcs' }}/" class="nav-btn">
+                            <i class="fas fa-arrow-left"></i> Dashboard
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -443,27 +482,7 @@
                                         {% set month = date_parts[1]|int %}
                                         {% set day = date_parts[2].split(' ')[0]|int %}
                                         
-                                        {# Use JavaScript Date calculation which is more reliable #}
-                                        {# Create date and get day of week (0=Sunday, 1=Monday, etc.) #}
-                                        <script>
-                                            // This will be executed for each date header
-                                            (function() {
-                                                const date = new Date({{ year }}, {{ month - 1 }}, {{ day }});
-                                                const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday, etc.
-                                                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                                                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-                                                
-                                                // Store these values for use in the template
-                                                window.dateInfo = window.dateInfo || {};
-                                                window.dateInfo['{{ date_col }}'] = {
-                                                    day: {{ day }},
-                                                    dayName: dayNames[dayOfWeek],
-                                                    isWeekend: isWeekend
-                                                };
-                                            })();
-                                        </script>
-                                        
-                                        {# For now, use a simplified approach that works with Jinja #}
+                                        {# Use simplified calculation for template, JavaScript will fix it #}
                                         {% set day_of_week = ((day + ((13 * ((month + 9) % 12 + 1)) // 5) + (year % 100) + ((year % 100) // 4) + (year // 100 // 4) - 2 * (year // 100)) % 7) %}
                                         {% set is_weekend = (day_of_week == 0 or day_of_week == 6) %}
                                         {% set day_names = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
@@ -617,7 +636,7 @@
             <div class="text-center py-5">
                 <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
                 <h4>No Calendar Data Available</h4>
-                <p class="text-muted">Please ensure your Excel file is properly formatted and contains monthly data.</p>
+                <p class="text-muted">Please ensure your Excel file is properly formatted and contains monthly data for {{ team_config.name if team_config else 'this team' }}.</p>
                 <button onclick="refreshData()" class="btn btn-primary">
                     <i class="fas fa-sync"></i> Refresh Data
                 </button>
@@ -634,6 +653,7 @@
         let availableMonths = {{ available_months|tojson if available_months else '[]' }};
         let currentMonthIndex = {{ current_month_index if current_month_index else 0 }};
         let tooltip = document.getElementById('tooltip');
+        const teamId = '{{ team_id if team_id else "uv-wcs" }}';
 
         // Fix day names using JavaScript after page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -759,7 +779,7 @@
 
         function changeMonth() {
             const month = availableMonths[currentMonthIndex];
-            window.location.href = `/calendar?month=${month}`;
+            window.location.href = `/${teamId}/calendar?month=${month}`;
         }
 
         function showStatusDetails(employeeName, date, status) {
@@ -769,7 +789,7 @@
             // Create a more detailed popup
             if (confirm(`Employee: ${employeeName}\nDate: ${date}\nStatus: ${statusText}\n\nClick OK to view employee details or Cancel to close.`)) {
                 // Redirect to main page with employee focus
-                window.location.href = `/?employee=${employeeName}`;
+                window.location.href = `/${teamId}/?employee=${employeeName}`;
             }
         }
 
@@ -797,13 +817,13 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
             btn.disabled = true;
 
-            fetch('/api/refresh')
+            fetch(`/api/${teamId}/refresh`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
                         location.reload();
                     } else {
-                        alert('No data found. Please add your Excel file to the data folder.');
+                        alert(`No data found for ${data.team_id || teamId}. Please add the Excel file to the team's data folder.`);
                     }
                 })
                 .catch(error => {
@@ -838,4 +858,18 @@
         });
     </script>
 </body>
-</html>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ team_config.display_name if team_config else 'WFO Tracker' }} - Calendar View</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, {{ team_config.primary_color if team_config else '#667eea' }} 0%, {{ team_config.secondary_color if team_config else '#764ba2' }} 100%);
+            --primary-color: {{ team_config.primary_color if team_config else '#667eea' }};
+            --wfo-color: #28a745;
+            --wfh-color: #007bff;
+            --sick-leave-color: #dc3545

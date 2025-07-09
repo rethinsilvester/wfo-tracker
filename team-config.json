@@ -1,0 +1,92 @@
+{
+  "teams": {
+    "uv-wcs": {
+      "name": "UV-WCS Admins",
+      "display_name": "UV-WCS Admin Team",
+      "excel_pattern": "App_Admin_UV-WCS*.xlsx",
+      "data_folder": "data/uv-wcs",
+      "logo": "/static/images/Mouser_logo.png",
+      "primary_color": "#667eea",
+      "secondary_color": "#764ba2",
+      "description": "UV-WCS Administration Team Attendance Tracking",
+      "department": "UV-WCS Administration",
+      "manager": "Admin Manager",
+      "timezone": "UTC",
+      "work_hours": "9 AM - 6 PM",
+      "wfo_target": 70
+    },
+    "wcs-dev": {
+      "name": "WCS Developers",
+      "display_name": "WCS Development Team",
+      "excel_pattern": "WCS_DEV_tracker*.xlsx",
+      "data_folder": "data/wcs-dev",
+      "logo": "/static/images/Developer_logo.png",
+      "primary_color": "#28a745",
+      "secondary_color": "#20c997",
+      "description": "WCS Development Team Attendance Tracking",
+      "department": "Software Development",
+      "manager": "Dev Manager",
+      "timezone": "UTC",
+      "work_hours": "10 AM - 7 PM",
+      "wfo_target": 60
+    }
+  },
+  "global_settings": {
+    "app_title": "WFO Tracker - Multi Team",
+    "company_name": "Your Company",
+    "default_theme": "light",
+    "max_file_size_mb": 10,
+    "allowed_file_types": [".xlsx", ".xls"],
+    "refresh_interval_minutes": 5,
+    "cache_duration_hours": 1,
+    "backup_retention_days": 30
+  },
+  "status_mappings": {
+    "wfo": {
+      "aliases": ["WFO", "work from office", "office"],
+      "color": "#28a745",
+      "icon": "fas fa-building",
+      "display": "Work From Office"
+    },
+    "wfh": {
+      "aliases": ["WFH", "work from home", "home", "remote"],
+      "color": "#007bff",
+      "icon": "fas fa-home",
+      "display": "Work From Home"
+    },
+    "sl": {
+      "aliases": ["SL", "sick leave", "sick", "ill"],
+      "color": "#dc3545",
+      "icon": "fas fa-user-injured",
+      "display": "Sick Leave"
+    },
+    "pl": {
+      "aliases": ["PL", "planned leave", "leave", "vacation", "holiday leave"],
+      "color": "#fd7e14",
+      "icon": "fas fa-calendar-minus",
+      "display": "Planned Leave"
+    },
+    "holiday": {
+      "aliases": ["holiday", "india holiday", "public holiday", "bank holiday"],
+      "color": "#6c757d",
+      "icon": "fas fa-calendar-times",
+      "display": "Holiday"
+    }
+  },
+  "features": {
+    "enable_calendar_view": true,
+    "enable_statistics": true,
+    "enable_export": true,
+    "enable_notifications": false,
+    "enable_user_management": false,
+    "enable_multi_language": false
+  },
+  "ui_customization": {
+    "show_company_logo": true,
+    "show_team_stats": true,
+    "show_weekend_highlighting": true,
+    "default_month_view": "latest",
+    "items_per_page": 20,
+    "chart_animations": true
+  }
+}

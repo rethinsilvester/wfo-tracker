@@ -3,53 +3,58 @@ import pandas as pd
 from flask import Flask, request, render_template, jsonify, redirect, url_for, send_from_directory
 from datetime import datetime
 import json
-from collections import defaultdict
-import logging
-import traceback
 import glob
+import logging
+from collections import defaultdict
+import traceback
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'
 
-# Configuration
-DATA_FOLDER = 'data'
-EXCEL_FILE_PATTERN = '*.xlsx'
+# CONFIGURATION FIRST (so it's available to all functions)
+TEAMS_CONFIG = {
+    'uv-wcs': {
+        'name': 'UV-WCS Admins',
+        'display_name': 'UV-WCS Admin Team',
+        'excel_pattern': 'App_Admin_UV-WCS*.xlsx',
+        'data_folder': 'data/uv-wcs',
+        'logo': '/static/images/Mouser_logo.png',
+        'primary_color': '#667eea',
+        'secondary_color': '#764ba2',
+        'description': 'UV-WCS Administration Team Attendance Tracking',
+        'wfo_target': 70,
+        'team_id': 'uv-wcs'
+    },
+    'wcs-dev': {
+        'name': 'WCS Developers',
+        'display_name': 'WCS Development Team',
+        'excel_pattern': 'WCS_DEV_tracker*.xlsx',
+        'data_folder': 'data/wcs-dev',
+        'logo': '/static/images/Developer_logo.png',
+        'primary_color': '#28a745',
+        'secondary_color': '#20c997',
+        'description': 'WCS Development Team Attendance Tracking',
+        'wfo_target': 60,
+        'team_id': 'wcs-dev'
+    }
+}
 
-# Create data folder if it doesn't exist
-os.makedirs(DATA_FOLDER, exist_ok=True)
-# Create static folder if it doesn't exist
-os.makedirs('static/images', exist_ok=True)
+GLOBAL_SETTINGS = {
+    'app_title': 'WFO Tracker - Multi Team',
+    'company_name': 'Your Company'
+}
 
-def find_latest_excel_file():
-    """Find the latest Excel file in the data folder"""
-    try:
-        excel_files = glob.glob(os.path.join(DATA_FOLDER, EXCEL_FILE_PATTERN))
-        
-        if not excel_files:
-            excel_files = glob.glob(EXCEL_FILE_PATTERN)
-        
-        if not excel_files:
-            logger.warning("No Excel files found")
-            return None
-        
-        latest_file = max(excel_files, key=os.path.getmtime)
-        logger.info(f"Found latest Excel file: {latest_file}")
-        
-        file_stats = os.stat(latest_file)
-        return {
-            'filepath': latest_file,
-            'filename': os.path.basename(latest_file),
-            'size': file_stats.st_size,
-            'modified': datetime.fromtimestamp(file_stats.st_mtime).isoformat()
-        }
-        
-    except Exception as e:
-        logger.error(f"Error finding Excel file: {e}")
-        return None
+# Create data folders
+for team_id, config in TEAMS_CONFIG.items():
+    os.makedirs(config['data_folder'], exist_ok=True)
+
+# HELPER FUNCTIONS (after config is defined)
+def get_team_config(team_id):
+    """Get team configuration or return None if invalid"""
+    return TEAMS_CONFIG.get(team_id)
 
 def sort_months_chronologically(month_names):
     """Sort month names in chronological order"""
@@ -70,97 +75,40 @@ def sort_months_chronologically(month_names):
     
     return sorted(month_names, key=get_month_number)
 
-def load_data_from_repo():
-    """Load and process data from the repository Excel file"""
+def find_latest_excel_file(team_id):
+    """Find the latest Excel file for a specific team"""
     try:
-        file_info = find_latest_excel_file()
-        
-        if not file_info:
-            return None, None, {}
-        
-        filepath = file_info['filepath']
-        logger.info(f"Loading data from: {filepath}")
-        
-        excel_data = pd.read_excel(filepath, sheet_name=None)
-        logger.info(f"Loaded Excel file with sheets: {list(excel_data.keys())}")
-        
-        combined_data = []
-        monthly_data = {}
-        
-        for sheet_name, df in excel_data.items():
-            if df.empty:
-                continue
-                
-            processed_data = process_monthly_sheet(df, sheet_name)
-            if processed_data is not None:
-                combined_data.append(processed_data)
-                monthly_data[sheet_name] = processed_data
-        
-        sorted_month_names = sort_months_chronologically(list(monthly_data.keys()))
-        sorted_monthly_data = {month: monthly_data[month] for month in sorted_month_names}
-        
-        metadata = {
-            'source_file': file_info['filename'],
-            'file_path': filepath,
-            'file_size': file_info['size'],
-            'last_modified': file_info['modified'],
-            'total_sheets': len(combined_data),
-            'total_employees': len(set(emp['name'] for sheet in combined_data for emp in sheet['employees'] if emp['name'] and emp['name'].strip() != 'Employee Name')) if combined_data else 0,
-            'sheet_names': sorted_month_names,
-            'loaded_timestamp': datetime.now().isoformat()
-        }
-        
-        logger.info(f"Loaded data for {len(combined_data)} sheets, {metadata['total_employees']} employees")
-        return combined_data, sorted_monthly_data, metadata
-        
-    except Exception as e:
-        logger.error(f"Error loading data: {e}")
-        return None, None, {}
+        config = get_team_config(team_id)
+        if not config:
+            return None
 
-@app.route('/api/raw-excel-debug')
-def raw_excel_debug():
-    """Debug endpoint to see raw Excel structure"""
-    try:
-        file_info = find_latest_excel_file()
-        if not file_info:
-            return jsonify({'status': 'no_file'}), 404
-        
-        filepath = file_info['filepath']
-        
-        # Read Excel file with minimal processing
-        excel_data = pd.read_excel(filepath, sheet_name=None, header=None)
-        
-        debug_data = {}
-        for sheet_name, df in excel_data.items():
-            # Get first 10 rows and 10 columns for debugging
-            sheet_debug = {
-                'shape': df.shape,
-                'raw_data': []
-            }
-            
-            for i in range(min(10, len(df))):
-                row_data = []
-                for j in range(min(10, len(df.columns))):
-                    cell_value = df.iloc[i, j]
-                    row_data.append({
-                        'value': str(cell_value) if pd.notna(cell_value) else 'NaN',
-                        'type': str(type(cell_value).__name__)
-                    })
-                sheet_debug['raw_data'].append({
-                    'row_index': i,
-                    'data': row_data
-                })
-            
-            debug_data[sheet_name] = sheet_debug
-        
-        return jsonify({
-            'status': 'success',
-            'file_info': file_info,
-            'excel_debug': debug_data
-        })
-        
+        data_folder = config['data_folder']
+        excel_pattern = config['excel_pattern']
+
+        excel_files = glob.glob(os.path.join(data_folder, excel_pattern))
+
+        if not excel_files:
+            excel_files = glob.glob(os.path.join('data', excel_pattern))
+
+        if not excel_files:
+            logger.warning(f"No Excel files found for team {team_id}")
+            return None
+
+        latest_file = max(excel_files, key=os.path.getmtime)
+        logger.info(f"Found latest Excel file for {team_id}: {latest_file}")
+
+        file_stats = os.stat(latest_file)
+        return {
+            'filepath': latest_file,
+            'filename': os.path.basename(latest_file),
+            'size': file_stats.st_size,
+            'modified': datetime.fromtimestamp(file_stats.st_mtime).isoformat(),
+            'team_id': team_id
+        }
+
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        logger.error(f"Error finding Excel file for team {team_id}: {e}")
+        return None
 
 def process_monthly_sheet(df, sheet_name):
     """Process a single monthly sheet and extract relevant data"""
@@ -171,29 +119,20 @@ def process_monthly_sheet(df, sheet_name):
         logger.info(f"=== PROCESSING SHEET: {sheet_name} ===")
         logger.info(f"Sheet shape: {df.shape}")
         
-        # Print the first 10 rows to understand structure
-        logger.info("First 10 rows of the sheet:")
-        for i in range(min(10, len(df))):
-            row_data = []
-            for j in range(min(8, len(df.columns))):
-                cell_value = df.iloc[i, j]
-                row_data.append(str(cell_value) if pd.notna(cell_value) else 'NaN')
-            logger.info(f"Row {i}: {row_data}")
-        
         employee_data = []
         date_columns = []
         
-        # FIXED: Find date columns (they start from column 5 onwards)
+        # Find date columns (they start from column 5 onwards)
         for col_idx, col_name in enumerate(df.columns):
             if col_idx >= 5:
                 date_columns.append(str(col_name))
         
         logger.info(f"Found {len(date_columns)} date columns: {date_columns[:5]}...")
         
-        # FIXED: Use sheet-specific seen_employees to avoid cross-sheet conflicts
+        # Use sheet-specific seen_employees to avoid cross-sheet conflicts
         seen_employees = set()
         
-        # FIXED: Process ALL rows starting from index 1 (row 2 in Excel) - Lokesh is in row 1!
+        # Process ALL rows starting from index 1 (row 2 in Excel)
         for idx in range(1, len(df)):
             try:
                 row = df.iloc[idx]
@@ -201,31 +140,20 @@ def process_monthly_sheet(df, sheet_name):
                 # Get employee name from first column
                 emp_name_raw = row.iloc[0]
                 if pd.isna(emp_name_raw):
-                    logger.info(f"Row {idx}: Skipping - empty name")
                     continue
                     
                 emp_name = str(emp_name_raw).strip()
                 
-                # Enhanced debug for ALL employees (starting from row 1)
-                logger.info(f"\n--- PROCESSING ROW {idx} (Excel row {idx+1}) ---")
-                logger.info(f"Employee Name: '{emp_name}'")
-                logger.info(f"Person ID: '{row.iloc[1] if pd.notna(row.iloc[1]) else 'NaN'}'")
-                logger.info(f"Department: '{row.iloc[2] if pd.notna(row.iloc[2]) else 'NaN'}'")
-                logger.info(f"Team Manager: '{row.iloc[3] if pd.notna(row.iloc[3]) else 'NaN'}'")
-                logger.info(f"Shift Timings: '{row.iloc[4] if pd.notna(row.iloc[4]) else 'NaN'}'")
-                
-                # FIXED: More lenient name validation - removed summary row detection
+                # More lenient name validation
                 if (not emp_name or 
                     emp_name == '' or 
                     emp_name.lower() == 'employee name' or
                     emp_name.lower() == 'nan' or
                     len(emp_name.strip()) == 0):
-                    logger.info(f"Skipping invalid name: '{emp_name}'")
                     continue
                 
-                # FIXED: Check for duplicates within this sheet only
+                # Check for duplicates within this sheet only
                 if emp_name in seen_employees:
-                    logger.info(f"Skipping duplicate employee in this sheet: {emp_name}")
                     continue
                     
                 seen_employees.add(emp_name)
@@ -247,59 +175,30 @@ def process_monthly_sheet(df, sheet_name):
                     'daily_status': {}
                 }
                 
-                # FIXED: Extract daily status - handle empty cells better
+                # Extract daily status
                 status_count = 0
-                logger.info(f"Extracting daily statuses for {emp_name}:")
                 
                 for col_idx, date_col in enumerate(date_columns):
                     data_col_idx = col_idx + 5  # Date columns start at index 5
                     if data_col_idx < len(row):
                         status = row.iloc[data_col_idx]
                         
-                        # SPECIAL DEBUG FOR LOKESH - show ALL cells
-                        if 'lokesh' in emp_name.lower():
-                            logger.info(f"  LOKESH DEBUG - Col {data_col_idx} ({date_col}): raw='{status}', isna={pd.isna(status)}")
-                        
                         if pd.notna(status):
                             clean_status = str(status).strip()
                             if clean_status and clean_status != 'nan' and clean_status != '' and clean_status.upper() != 'NAN':
                                 employee_info['daily_status'][str(date_col)] = clean_status
                                 status_count += 1
-                                
-                                # Log first 10 statuses for debugging
-                                if status_count <= 10:
-                                    logger.info(f"  {date_col}: '{clean_status}'")
-                        else:
-                            # SPECIAL DEBUG FOR LOKESH - show empty cells too
-                            if 'lokesh' in emp_name.lower():
-                                logger.info(f"  LOKESH DEBUG - EMPTY cell at col {data_col_idx} ({date_col})")
                 
-                logger.info(f"Total statuses for {emp_name}: {status_count}")
-                
-                # FIXED: More lenient acceptance criteria - accept if they have either status data OR basic info
+                # Accept if they have either status data OR basic info
                 if employee_info['name'] and (status_count > 0 or employee_info['department'] or employee_info['person_id']):
                     employee_data.append(employee_info)
                     logger.info(f"✅ ADDED: {emp_name} with {status_count} status entries")
-                    
-                    # SPECIAL DEBUG FOR LOKESH
-                    if 'lokesh' in emp_name.lower():
-                        logger.info(f"🔍 LOKESH SPECIAL DEBUG:")
-                        logger.info(f"   Name: '{emp_name}'")
-                        logger.info(f"   Status count: {status_count}")
-                        logger.info(f"   Department: '{employee_info['department']}'")
-                        logger.info(f"   Person ID: '{employee_info['person_id']}'")
-                        logger.info(f"   Sample statuses: {dict(list(employee_info['daily_status'].items())[:3])}")
-                else:
-                    logger.info(f"❌ SKIPPED: {emp_name} - no valid data (status_count={status_count}, dept='{employee_info['department']}', id='{employee_info['person_id']}')")
                     
             except Exception as row_error:
                 logger.error(f"Error processing row {idx}: {row_error}")
                 continue
         
-        logger.info(f"\n=== FINAL RESULT FOR {sheet_name} ===")
         logger.info(f"Total employees processed: {len(employee_data)}")
-        for emp in employee_data:
-            logger.info(f"  - {emp['name']}: {len(emp['daily_status'])} status entries")
         
         return {
             'sheet_name': sheet_name,
@@ -323,8 +222,6 @@ def calculate_employee_stats(employee, date_columns):
         'total_days': 0
     }
     
-    logger.info(f"Calculating stats for {employee['name']}, daily_status entries: {len(employee['daily_status'])}")
-    
     for date_col in date_columns:
         status = employee['daily_status'].get(str(date_col), '')
         if status and status.strip():
@@ -337,13 +234,10 @@ def calculate_employee_stats(employee, date_columns):
                 stats['wfh_days'] += 1
             elif status_upper in ['SL', 'SICK LEAVE']:
                 stats['sick_leave_days'] += 1
-            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:  # Added PL here
+            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:
                 stats['planned_leave_days'] += 1
             elif status_upper in ['INDIA HOLIDAY', 'HOLIDAY']:
                 stats['holiday_days'] += 1
-            else:
-                # Log unknown statuses for debugging
-                logger.info(f"Unknown status for {employee['name']}: '{status}' (upper: '{status_upper}')")
     
     # Calculate total leave days for backward compatibility
     stats['leave_days'] = stats['sick_leave_days'] + stats['planned_leave_days']
@@ -366,7 +260,6 @@ def calculate_employee_stats(employee, date_columns):
         stats['holiday_percentage'] = 0
         stats['attendance_rate'] = 0
     
-    logger.info(f"Stats for {employee['name']}: WFO={stats['wfo_days']}, WFH={stats['wfh_days']}, SL={stats['sick_leave_days']}, PL={stats['planned_leave_days']}, Total={stats['total_days']}")
     return stats
 
 def calculate_monthly_summary(month_data):
@@ -388,7 +281,7 @@ def calculate_monthly_summary(month_data):
             elif status_upper in ['SL', 'SICK LEAVE']:
                 total_sick_leave += 1
                 total_working += 1
-            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:  # Added PL here
+            elif status_upper in ['LEAVE', 'PLANNED LEAVE', 'PL']:
                 total_planned_leave += 1
                 total_working += 1
             elif status_upper in ['INDIA HOLIDAY', 'HOLIDAY']:
@@ -420,17 +313,77 @@ def calculate_monthly_summary(month_data):
         summary['overall_planned_leave_percentage'] = 0
         summary['overall_leave_percentage'] = 0
     
-    logger.info(f"Monthly summary: WFO={total_wfo}, WFH={total_wfh}, SL={total_sick_leave}, PL={total_planned_leave}, Holiday={total_holiday}")
     return summary
 
-@app.route('/')
-def index():
-    """Minimal employee-focused landing page"""
+def load_data_from_repo(team_id):
+    """Load and process data for a specific team"""
     try:
-        combined_data, monthly_data, metadata = load_data_from_repo()
+        file_info = find_latest_excel_file(team_id)
+        
+        if not file_info:
+            return None, None, {}
+        
+        filepath = file_info['filepath']
+        logger.info(f"Loading data for team {team_id} from: {filepath}")
+        
+        excel_data = pd.read_excel(filepath, sheet_name=None)
+        logger.info(f"Loaded Excel file with sheets: {list(excel_data.keys())}")
+        
+        combined_data = []
+        monthly_data = {}
+        
+        for sheet_name, df in excel_data.items():
+            if df.empty:
+                continue
+                
+            processed_data = process_monthly_sheet(df, sheet_name)
+            if processed_data is not None:
+                combined_data.append(processed_data)
+                monthly_data[sheet_name] = processed_data
+        
+        sorted_month_names = sort_months_chronologically(list(monthly_data.keys()))
+        sorted_monthly_data = {month: monthly_data[month] for month in sorted_month_names}
+        
+        config = get_team_config(team_id)
+        metadata = {
+            'team_id': team_id,
+            'team_name': config['name'],
+            'team_display_name': config['display_name'],
+            'source_file': file_info['filename'],
+            'file_path': filepath,
+            'file_size': file_info['size'],
+            'last_modified': file_info['modified'],
+            'total_sheets': len(combined_data),
+            'total_employees': len(set(emp['name'] for sheet in combined_data for emp in sheet['employees'] if emp['name'] and emp['name'].strip() != 'Employee Name')) if combined_data else 0,
+            'sheet_names': sorted_month_names,
+            'loaded_timestamp': datetime.now().isoformat()
+        }
+        
+        logger.info(f"Loaded data for team {team_id}: {len(combined_data)} sheets, {metadata['total_employees']} employees")
+        return combined_data, sorted_monthly_data, metadata
+        
+    except Exception as e:
+        logger.error(f"Error loading data for team {team_id}: {e}")
+        return None, None, {}
+
+# ROUTES
+@app.route('/')
+def landing():
+    """Landing page with team selector"""
+    return render_template('team_selector.html', teams=TEAMS_CONFIG, global_settings=GLOBAL_SETTINGS)
+
+@app.route('/<team_id>/')
+def team_dashboard(team_id):
+    """Team-specific dashboard"""
+    config = get_team_config(team_id)
+    if not config:
+        return redirect(url_for('landing'))
+    
+    try:
+        combined_data, monthly_data, metadata = load_data_from_repo(team_id)
         
         if not combined_data:
-            return render_template('no_data.html')
+            return render_template('no_data.html', team_config=config)
         
         # Get current month - DEFAULT TO LATEST (LAST) MONTH
         current_month = request.args.get('month')
@@ -440,54 +393,37 @@ def index():
             current_month = available_months[-1] if available_months else None
         
         if not current_month:
-            return render_template('no_data.html')
+            return render_template('no_data.html', team_config=config)
         
         month_data = monthly_data[current_month]
         
-        # FIXED: Filter out invalid employees and remove duplicates more carefully
+        # Process employees
         valid_employees = []
         seen_names = set()
         
         for employee in month_data['employees']:
             emp_name = employee['name'].strip()
             
-            # FIXED: More careful validation
             if (not emp_name or 
                 emp_name.lower() == 'employee name' or
                 len(emp_name.strip()) == 0):
-                logger.info(f"Filtering out invalid employee name: '{emp_name}'")
                 continue
             
-            # FIXED: Case-insensitive duplicate check
             emp_name_lower = emp_name.lower()
             if emp_name_lower in seen_names:
-                logger.info(f"Filtering out duplicate employee: '{emp_name}'")
                 continue
-            
+                
             seen_names.add(emp_name_lower)
             
-            # Calculate stats
             stats = calculate_employee_stats(employee, month_data['date_columns'])
             employee_with_stats = employee.copy()
             employee_with_stats['stats'] = stats
             valid_employees.append(employee_with_stats)
-            
-            # SPECIAL LOG FOR LOKESH
-            if 'lokesh' in emp_name.lower():
-                logger.info(f"🔍 LOKESH IN FINAL LIST: {emp_name} with {len(employee['daily_status'])} statuses")
         
-        # Calculate monthly summary
         monthly_summary = calculate_monthly_summary(month_data)
-        
-        # Get current month index for navigation
         current_month_index = available_months.index(current_month) if current_month in available_months else len(available_months) - 1
         
-        logger.info(f"Displaying {len(valid_employees)} unique employees for month: {current_month}")
-        
-        # DEBUG: Log all employee names in final list
-        logger.info("Final employee list:")
-        for emp in valid_employees:
-            logger.info(f"  - {emp['name']}")
+        logger.info(f"Displaying {len(valid_employees)} employees for team {team_id}, month: {current_month}")
         
         return render_template('minimal_dashboard.html',
                              employees=valid_employees,
@@ -495,21 +431,25 @@ def index():
                              monthly_summary=monthly_summary,
                              available_months=available_months,
                              current_month_index=current_month_index,
-                             metadata=metadata)
+                             metadata=metadata,
+                             team_config=config)
         
     except Exception as e:
-        logger.error(f"Error in index route: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return render_template('error.html', error_message=str(e))
+        logger.error(f"Error in team dashboard for {team_id}: {e}")
+        return render_template('error.html', error_message=str(e), team_config=config)
 
-@app.route('/calendar')
-def calendar_view():
-    """Excel-like calendar view"""
+@app.route('/<team_id>/calendar')
+def team_calendar(team_id):
+    """Team-specific calendar view"""
+    config = get_team_config(team_id)
+    if not config:
+        return redirect(url_for('landing'))
+    
     try:
-        combined_data, monthly_data, metadata = load_data_from_repo()
+        combined_data, monthly_data, metadata = load_data_from_repo(team_id)
         
         if not combined_data:
-            return redirect(url_for('index'))
+            return redirect(url_for('team_dashboard', team_id=team_id))
         
         # Get current month - DEFAULT TO LATEST MONTH
         current_month = request.args.get('month')
@@ -519,11 +459,11 @@ def calendar_view():
             current_month = available_months[-1] if available_months else None
         
         if not current_month:
-            return redirect(url_for('index'))
+            return redirect(url_for('team_dashboard', team_id=team_id))
         
         month_data = monthly_data[current_month]
         
-        # FIXED: Filter out duplicate employees with case-insensitive checking
+        # Filter unique employees
         unique_employees = []
         seen_names = set()
         
@@ -537,19 +477,16 @@ def calendar_view():
                 seen_names.add(emp_name_lower)
                 unique_employees.append(employee)
         
-        # Update month_data with unique employees
         month_data_clean = month_data.copy()
         month_data_clean['employees'] = unique_employees
         
-        # Calculate monthly statistics for calendar view
         monthly_stats = calculate_monthly_summary(month_data_clean)
         
-        # Get navigation info
         current_month_index = available_months.index(current_month)
         can_go_previous = current_month_index > 0
         can_go_next = current_month_index < len(available_months) - 1
         
-        logger.info(f"Calendar view: {len(unique_employees)} unique employees for month: {current_month}")
+        logger.info(f"Calendar view for team {team_id}: {len(unique_employees)} employees, month: {current_month}")
         
         return render_template('excel_calendar.html',
                              month_data=month_data_clean,
@@ -558,21 +495,29 @@ def calendar_view():
                              available_months=available_months,
                              current_month_index=current_month_index,
                              can_go_previous=can_go_previous,
-                             can_go_next=can_go_next)
+                             can_go_next=can_go_next,
+                             team_config=config,
+                             team_id=team_id)
         
     except Exception as e:
-        logger.error(f"Error in calendar route: {e}")
-        return redirect(url_for('index'))
+        logger.error(f"Error in team calendar for {team_id}: {e}")
+        return redirect(url_for('team_dashboard', team_id=team_id))
 
-@app.route('/api/refresh')
-def refresh_data():
-    """API endpoint to refresh data from repository file"""
+@app.route('/api/<team_id>/refresh')
+def refresh_team_data(team_id):
+    """API endpoint to refresh data for a specific team"""
+    config = get_team_config(team_id)
+    if not config:
+        return jsonify({'status': 'error', 'message': 'Invalid team'}), 400
+
     try:
-        combined_data, monthly_data, metadata = load_data_from_repo()
+        combined_data, monthly_data, metadata = load_data_from_repo(team_id)
         
         if combined_data:
             return jsonify({
                 'status': 'success',
+                'team_id': team_id,
+                'team_name': config['name'],
                 'total_employees': metadata.get('total_employees', 0),
                 'total_sheets': metadata.get('total_sheets', 0),
                 'last_modified': metadata.get('last_modified', 'Unknown'),
@@ -584,106 +529,87 @@ def refresh_data():
         else:
             return jsonify({
                 'status': 'no_data', 
-                'message': 'No Excel file found in repository'
+                'message': f'No Excel file found for team {team_id}',
+                'team_id': team_id
             }), 404
             
     except Exception as e:
-        logger.error(f"Error refreshing data: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        logger.error(f"Error refreshing data for team {team_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e), 'team_id': team_id}), 500
 
-@app.route('/api/file-info')
-def file_info():
-    """API endpoint to get current file information"""
+@app.route('/api/<team_id>/file-info')
+def team_file_info(team_id):
+    """API endpoint to get file information for a specific team"""
+    config = get_team_config(team_id)
+    if not config:
+        return jsonify({'status': 'error', 'message': 'Invalid team'}), 400
+    
     try:
-        file_info = find_latest_excel_file()
+        file_info = find_latest_excel_file(team_id)
         if file_info:
             return jsonify({
                 'status': 'success',
+                'team_id': team_id,
                 'file_info': file_info
             })
         else:
             return jsonify({
                 'status': 'no_file', 
-                'message': 'No Excel file found'
+                'message': f'No Excel file found for team {team_id}',
+                'team_id': team_id
             }), 404
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/api/debug/<employee_name>')
-def debug_employee_data(employee_name):
-    """Debug endpoint to check specific employee data"""
-    try:
-        combined_data, monthly_data, metadata = load_data_from_repo()
-        
-        if not combined_data:
-            return jsonify({'status': 'no_data'}), 404
-        
-        debug_info = {
-            'employee_name': employee_name,
-            'found_in_sheets': [],
-            'raw_data': {}
-        }
-        
-        for sheet_data in combined_data:
-            sheet_name = sheet_data['sheet_name']
-            for employee in sheet_data['employees']:
-                if employee['name'].lower() == employee_name.lower():
-                    debug_info['found_in_sheets'].append(sheet_name)
-                    debug_info['raw_data'][sheet_name] = {
-                        'name': employee['name'],
-                        'person_id': employee['person_id'],
-                        'department': employee['department'],
-                        'team_manager': employee['team_manager'],
-                        'shift_timings': employee['shift_timings'],
-                        'daily_status_count': len(employee['daily_status']),
-                        'daily_status_sample': dict(list(employee['daily_status'].items())[:5]),
-                        'all_daily_status': employee['daily_status']
-                    }
-        
-        return jsonify({
-            'status': 'success',
-            'debug_info': debug_info
-        })
-        
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': 'error', 'message': str(e), 'team_id': team_id}), 500
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint"""
+    """Enhanced health check with team information"""
     try:
-        file_info = find_latest_excel_file()
-        combined_data, monthly_data, metadata = load_data_from_repo()
-        
-        # Add debug info about all employees
-        employee_debug = {}
-        if combined_data:
-            for sheet_data in combined_data:
-                sheet_name = sheet_data['sheet_name']
-                employee_debug[sheet_name] = []
-                for emp in sheet_data['employees']:
-                    employee_debug[sheet_name].append({
-                        'name': emp['name'],
-                        'status_count': len(emp['daily_status'])
-                    })
-        
-        return jsonify({
-            'status': 'healthy', 
+        health_data = {
+            'status': 'healthy',
             'timestamp': datetime.now().isoformat(),
-            'has_data_file': file_info is not None,
-            'has_processed_data': combined_data is not None,
-            'file_info': file_info,
-            'data_info': metadata if combined_data else None,
-            'employee_debug': employee_debug,
-            'version': '2.1.4-lokesh-final-fix',
-            'data_folder': DATA_FOLDER
-        })
+            'version': '3.0.0-complete',
+            'configuration': {
+                'teams_count': len(TEAMS_CONFIG),
+                'global_settings': GLOBAL_SETTINGS
+            },
+            'teams': {}
+        }
+        
+        for team_id, config in TEAMS_CONFIG.items():
+            file_info = find_latest_excel_file(team_id)
+            combined_data, monthly_data, metadata = load_data_from_repo(team_id)
+            
+            health_data['teams'][team_id] = {
+                'name': config['name'],
+                'display_name': config['display_name'],
+                'has_data_file': file_info is not None,
+                'has_processed_data': combined_data is not None,
+                'data_folder': config['data_folder'],
+                'excel_pattern': config['excel_pattern'],
+                'file_info': file_info,
+                'data_info': metadata if combined_data else None
+            }
+        
+        return jsonify(health_data)
     except Exception as e:
         return jsonify({
             'status': 'error',
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+
+@app.route('/debug/routes')
+def debug_routes():
+    """Debug routes"""
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            'route': rule.rule,
+            'endpoint': rule.endpoint,
+            'methods': list(rule.methods)
+        })
+    return jsonify(routes)
 
 @app.route('/static/<path:filename>')
 def static_files(filename):
@@ -692,6 +618,6 @@ def static_files(filename):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Starting WFO Tracker v2.1.4-lokesh-final-fix on port {port}")
-    logger.info(f"Data folder: {DATA_FOLDER}")
+    logger.info(f"Starting Complete Multi-Team WFO Tracker on port {port}")
+    logger.info(f"Configured teams: {list(TEAMS_CONFIG.keys())}")
     app.run(host='0.0.0.0', port=port, debug=False)
