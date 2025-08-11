@@ -1,0 +1,18 @@
+#!/bin/bash
+cd /home/rethin/projects/wfo_tracker
+
+echo "$(date): Starting auto-commit process" >> auto_commit.log
+
+# Check if there are changes
+if ! git diff-index --quiet HEAD --; then
+    git add .
+    git commit -m "Daily attendance update - $(date +%Y-%m-%d)"
+    
+    if git push origin master; then
+        echo "$(date): Successfully pushed changes" >> auto_commit.log
+    else
+        echo "$(date): Failed to push changes" >> auto_commit.log
+    fi
+else
+    echo "$(date): No changes to commit" >> auto_commit.log
+fi
