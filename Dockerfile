@@ -1,16 +1,12 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all application files
 COPY . .
 
-# Expose port 80 for Azure
-EXPOSE 80
+EXPOSE 5000
 
-# Start the Flask app
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]

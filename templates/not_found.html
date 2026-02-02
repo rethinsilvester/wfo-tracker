@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>No Data - WFO Tracker</title>
+    <title>Not Found - WFO Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,8 +23,8 @@
             inset: 0;
             z-index: -1;
             background: 
-                radial-gradient(ellipse at 30% 30%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-                radial-gradient(ellipse at 70% 70%, rgba(245, 158, 11, 0.08) 0%, transparent 50%);
+                radial-gradient(ellipse at 30% 30%, rgba(239, 68, 68, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 70%, rgba(99, 102, 241, 0.08) 0%, transparent 50%);
         }
 
         .container {
@@ -44,35 +44,32 @@
 
         p {
             color: rgba(255,255,255,0.6);
-            margin-bottom: 0.5rem;
-            max-width: 400px;
+            margin-bottom: 1.5rem;
         }
 
-        .hint {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.8rem;
-            background: rgba(255,255,255,0.05);
-            padding: 1rem;
-            border-radius: 12px;
-            margin-top: 2rem;
-            border: 1px solid rgba(255,255,255,0.1);
+        .back-btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #6366f1;
+            color: white;
+            text-decoration: none;
+            border-radius: 100px;
+            font-weight: 500;
+            transition: transform 0.2s ease;
         }
 
-        code {
-            color: #6366f1;
+        .back-btn:hover {
+            transform: translateY(-2px);
         }
     </style>
 </head>
 <body>
     <div class="fluid-bg"></div>
     <div class="container">
-        <div class="icon">📊</div>
-        <h1>No Data Found</h1>
-        <p>No Excel file found in the data folder. Please upload your attendance tracking file.</p>
-        <div class="hint">
-            Expected location: <code>data/*.xlsx</code><br>
-            Pattern: <code>App_Admin_UV-WCS*.xlsx</code>
-        </div>
+        <div class="icon">🔍</div>
+        <h1>Admin Not Found</h1>
+        <p>Could not find "{{ name }}" in the attendance data.</p>
+        <a href="/" class="back-btn">← Back to Dashboard</a>
     </div>
 </body>
 </html>

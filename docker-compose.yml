@@ -1,26 +1,12 @@
 version: '3.8'
+
 services:
-  web:
+  wfo-tracker:
     build: .
     ports:
       - "5000:5000"
     volumes:
-      # Mount templates for development
-      - ./templates:/app/templates
-      # Mount data folders for both teams
       - ./data:/app/data
-      # Mount static files (logos, etc.)
-      - ./static:/app/static
-      # Mount team configuration
-      - ./team-config.json:/app/team-config.json
     environment:
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
       - PORT=5000
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
     restart: unless-stopped

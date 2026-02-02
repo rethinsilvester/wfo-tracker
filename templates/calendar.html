@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ admin.name }} - Calendar</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.5);
+            --accent: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --wfo: #10b981;
+            --wfh: #6366f1;
+            --leave: #f59e0b;
+            --holiday: #ec4899;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        .fluid-bg {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .fluid-bg::before {
+            content: '';
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            top: -25%;
+            left: -25%;
+            background: 
+                radial-gradient(ellipse at 30% 20%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(236, 72, 153, 0.08) 0%, transparent 60%);
+            animation: fluidMove 20s ease-in-out infinite;
+        }
+
+        @keyframes fluidMove {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(2%, 3%) rotate(1deg); }
+            50% { transform: translate(-1%, 2%) rotate(-1deg); }
+            75% { transform: translate(1%, -2%) rotate(0.5deg); }
+        }
+
+        .noise {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            opacity: 0.03;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Back Button */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: var(--text);
+        }
+
+        /* Profile Header */
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.75rem;
+            color: white;
+        }
+
+        .profile-info h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .profile-meta {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Month Dropdown */
+        .month-selector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .month-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .month-dropdown {
+            padding: 0.75rem 2.5rem 0.75rem 1.25rem;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text);
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            min-width: 280px;
+        }
+
+        .month-dropdown:hover {
+            border-color: var(--accent);
+        }
+
+        .month-dropdown:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .month-dropdown option {
+            background: #1a1a2e;
+            color: var(--text);
+            padding: 0.5rem;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-card-value {
+            font-family: 'Space Mono', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .stat-card-value.wfo { color: var(--wfo); }
+        .stat-card-value.wfh { color: var(--wfh); }
+        .stat-card-value.leave { color: var(--leave); }
+        .stat-card-value.holiday { color: var(--holiday); }
+
+        .stat-card-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Progress Ring */
+        .progress-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .progress-ring-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 12;
+        }
+
+        .progress-ring-fill {
+            fill: none;
+            stroke-width: 12;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .progress-ring-fill.good { stroke: url(#gradientGood); }
+        .progress-ring-fill.warning { stroke: url(#gradientWarning); }
+        .progress-ring-fill.low { stroke: url(#gradientLow); }
+
+        .progress-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-percent {
+            font-family: 'Space Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .progress-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .target-info {
+            text-align: center;
+        }
+
+        .target-value {
+            font-family: 'Space Mono', monospace;
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .target-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Calendar Grid */
+        .calendar-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.5rem;
+        }
+
+        .calendar-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .day-cell {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: transform 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .day-cell:hover {
+            transform: scale(1.05);
+        }
+
+        .day-cell.wfo {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .day-cell.wfh {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1));
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .day-cell.leave, .day-cell.sl, .day-cell.pl {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .day-cell.holiday {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(236, 72, 153, 0.1));
+            border: 1px solid rgba(236, 72, 153, 0.3);
+        }
+
+        .day-date {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 0.2rem;
+        }
+
+        .day-status {
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .day-cell.wfo .day-status { color: var(--wfo); }
+        .day-cell.wfh .day-status { color: var(--wfh); }
+        .day-cell.leave .day-status, .day-cell.sl .day-status, .day-cell.pl .day-status { color: var(--leave); }
+        .day-cell.holiday .day-status { color: var(--holiday); }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+        }
+
+        .legend-dot.wfo { background: var(--wfo); }
+        .legend-dot.wfh { background: var(--wfh); }
+        .legend-dot.leave { background: var(--leave); }
+        .legend-dot.holiday { background: var(--holiday); }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 640px) {
+            .container { padding: 1rem; }
+            .profile-header { flex-direction: column; text-align: center; }
+            .profile-avatar { width: 60px; height: 60px; font-size: 1.25rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .progress-section { flex-direction: column; gap: 1.5rem; }
+            .calendar-grid { grid-template-columns: repeat(auto-fill, minmax(55px, 1fr)); gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="fluid-bg"></div>
+    <div class="noise"></div>
+
+    <div class="container">
+        <a href="/?month={{ month }}" class="back-link">← Back to Dashboard</a>
+
+        <div class="profile-header">
+            <div class="profile-avatar">{{ admin.name[:2].upper() }}</div>
+            <div class="profile-info">
+                <h1>{{ admin.name }}</h1>
+                <p class="profile-meta">
+                    {% if admin.person_id %}ID: {{ admin.person_id }} • {% endif %}
+                    {{ month }} Attendance
+                </p>
+            </div>
+        </div>
+
+        <div class="month-selector">
+            <span class="month-label">Select Month:</span>
+            <select class="month-dropdown" onchange="window.location.href='/admin/{{ admin.name }}?month=' + this.value">
+                {% for m in months %}
+                <option value="{{ m }}" {{ 'selected' if m == month else '' }}>{{ m }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-value wfo">{{ stats.wfo }}</div>
+                <div class="stat-card-label">WFO Days</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value wfh">{{ stats.wfh }}</div>
+                <div class="stat-card-label">WFH Days</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value leave">{{ stats.leave }}</div>
+                <div class="stat-card-label">Leave Days</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value holiday">{{ stats.holiday }}</div>
+                <div class="stat-card-label">Holidays</div>
+            </div>
+        </div>
+
+        <div class="progress-section">
+            <div class="progress-ring-container">
+                <svg class="progress-ring" width="160" height="160" viewBox="0 0 160 160">
+                    <defs>
+                        <linearGradient id="gradientGood" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#10b981"/>
+                            <stop offset="100%" stop-color="#34d399"/>
+                        </linearGradient>
+                        <linearGradient id="gradientWarning" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#f59e0b"/>
+                            <stop offset="100%" stop-color="#fbbf24"/>
+                        </linearGradient>
+                        <linearGradient id="gradientLow" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#ef4444"/>
+                            <stop offset="100%" stop-color="#f87171"/>
+                        </linearGradient>
+                    </defs>
+                    <circle class="progress-ring-bg" cx="80" cy="80" r="68"/>
+                    <circle class="progress-ring-fill {{ 'good' if stats.wfo >= wfo_target_days else ('warning' if stats.wfo >= (wfo_target_days * 0.7)|int else 'low') }}" 
+                            cx="80" cy="80" r="68"
+                            stroke-dasharray="427"
+                            stroke-dashoffset="{{ 427 - (427 * [stats.wfo / wfo_target_days, 1] | min) }}"/>
+                </svg>
+                <div class="progress-center">
+                    <div class="progress-percent">{{ stats.wfo }}</div>
+                    <div class="progress-label">WFO Days</div>
+                </div>
+            </div>
+
+            <div class="target-info">
+                <div class="target-value">{{ wfo_target_days }}</div>
+                <div class="target-label">Target Days</div>
+            </div>
+        </div>
+
+        <div class="calendar-section">
+            <h2 class="calendar-title">📅 Daily Attendance</h2>
+            <div class="calendar-grid">
+                {% for day in calendar_data %}
+                <div class="day-cell {{ day.status.lower().replace(' ', '-').replace('sick leave', 'sl').replace('planned leave', 'pl').replace('india holiday', 'holiday') }}">
+                    <div class="day-date">{{ day.date[:6] if day.date|length > 6 else day.date }}</div>
+                    <div class="day-status">{{ day.status }}</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-dot wfo"></div>
+                    <span>WFO</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot wfh"></div>
+                    <span>WFH</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot leave"></div>
+                    <span>Leave</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot holiday"></div>
+                    <span>Holiday</span>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Last updated: {{ meta.modified if meta else 'Unknown' }}</p>
+        </footer>
+    </div>
+</body>
+</html>
