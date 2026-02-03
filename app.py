@@ -133,12 +133,19 @@ def load_data():
             # Get date columns (starting from index 5)
             date_cols = []
             date_col_map = {}  # Maps formatted string to original column
+            weekend_count = 0
+            holiday_dates = set()
             
             for i, col in enumerate(df.columns):
                 if i >= 5:
                     formatted = format_date_column(col)
                     date_cols.append(formatted)
                     date_col_map[formatted] = col
+                    
+                    # Check if weekend
+                    if isinstance(col, datetime):
+                        if col.weekday() >= 5:  # 5=Saturday, 6=Sunday
+                            weekend_count += 1
             
             seen = set()
             
@@ -152,6 +159,25 @@ def load_data():
                 elif str(first_val).strip().lower() in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']:
                     start_row = 1
             
+            # First pass: identify company holidays (dates where status is HOLIDAY for any employee)
+            for idx in range(start_row, len(df)):
+                row = df.iloc[idx]
+                name = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ''
+                if not name or name.lower() in ['employee name', 'nan', '']:
+                    continue
+                    
+                for formatted_date, orig_col in date_col_map.items():
+                    val = row[orig_col] if orig_col in row.index else None
+                    if pd.notna(val):
+                        status = str(val).strip().upper()
+                        if status in ['HOLIDAY', 'INDIA HOLIDAY']:
+                            holiday_dates.add(formatted_date)
+            
+            # Calculate working days (excluding weekends and company holidays)
+            total_days = len(date_cols)
+            working_days = total_days - weekend_count - len(holiday_dates)
+            
+            # Second pass: extract employee data
             for idx in range(start_row, len(df)):
                 row = df.iloc[idx]
                 name = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ''
@@ -180,7 +206,11 @@ def load_data():
             if employees:
                 monthly_data[sheet_name] = {
                     'employees': employees,
-                    'date_columns': date_cols
+                    'date_columns': date_cols,
+                    'working_days': working_days,
+                    'total_days': total_days,
+                    'weekend_count': weekend_count,
+                    'holiday_count': len(holiday_dates)
                 }
         
         months = sort_months(list(monthly_data.keys()))
@@ -241,27 +271,31 @@ def index():
             month = available_months[-1]  # Fallback to latest
     
     month_data = data[month]
+    working_days = month_data.get('working_days', 20)  # Default to 20 if not calculated
     admins = []
     
     for emp in month_data['employees']:
         stats = calc_stats(emp['daily_status'])
+        # Calculate WFO percentage based on working days
+        stats['wfo_pct'] = round((stats['wfo'] / working_days * 100), 1) if working_days > 0 else 0
         admins.append({
             'name': emp['name'],
             'person_id': emp['person_id'],
             'stats': stats
         })
     
-    # Team totals
+    # Team totals - based on working days
     total_wfo = sum(a['stats']['wfo'] for a in admins)
-    total_wfh = sum(a['stats']['wfh'] for a in admins)
-    total_working = total_wfo + total_wfh
-    team_wfo_pct = round((total_wfo / total_working * 100), 1) if total_working > 0 else 0
+    num_members = len(admins)
+    total_possible_wfo = working_days * num_members
+    team_wfo_pct = round((total_wfo / total_possible_wfo * 100), 1) if total_possible_wfo > 0 else 0
     
     return render_template('index.html',
                          admins=admins,
                          month=month,
                          months=available_months,
                          team_wfo_pct=team_wfo_pct,
+                         working_days=working_days,
                          wfo_target_days=CONFIG['wfo_target_days'],
                          meta=meta)
 
@@ -284,6 +318,7 @@ def admin_calendar(n):
             month = available_months[-1]
     
     month_data = data[month]
+    working_days = month_data.get('working_days', 20)
     admin = None
     
     for emp in month_data['employees']:
@@ -295,6 +330,8 @@ def admin_calendar(n):
         return render_template('not_found.html', name=n)
     
     stats = calc_stats(admin['daily_status'])
+    # Calculate WFO percentage based on working days
+    stats['wfo_pct'] = round((stats['wfo'] / working_days * 100), 1) if working_days > 0 else 0
     
     # Build calendar data with all dates from the sheet
     calendar_data = []
@@ -312,6 +349,7 @@ def admin_calendar(n):
                          calendar_data=calendar_data,
                          month=month,
                          months=available_months,
+                         working_days=working_days,
                          wfo_target_days=CONFIG['wfo_target_days'],
                          meta=meta)
 
