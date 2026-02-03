@@ -188,6 +188,7 @@
 
         .stat-value.success { color: var(--success); }
         .stat-value.warning { color: var(--warning); }
+        .stat-value.low { color: #ef4444; }
 
         .stat-label {
             font-size: 0.75rem;
@@ -417,7 +418,7 @@
 
         <div class="stats-bar">
             <div class="stat-item">
-                <div class="stat-value {{ 'success' if team_wfo_pct >= 60 else 'warning' }}">{{ team_wfo_pct }}%</div>
+                <div class="stat-value {{ 'success' if team_wfo_pct >= 100 else ('warning' if team_wfo_pct >= 70 else 'low') }}">{{ team_wfo_pct }}%</div>
                 <div class="stat-label">Team WFO Rate</div>
             </div>
             <div class="stat-item">

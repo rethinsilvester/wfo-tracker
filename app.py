@@ -276,19 +276,19 @@ def index():
     
     for emp in month_data['employees']:
         stats = calc_stats(emp['daily_status'])
-        # Calculate WFO percentage based on working days
-        stats['wfo_pct'] = round((stats['wfo'] / working_days * 100), 1) if working_days > 0 else 0
+        # Calculate WFO percentage based on target days
+        stats['wfo_pct'] = round((stats['wfo'] / CONFIG['wfo_target_days'] * 100), 1) if CONFIG['wfo_target_days'] > 0 else 0
         admins.append({
             'name': emp['name'],
             'person_id': emp['person_id'],
             'stats': stats
         })
     
-    # Team totals - based on working days
+    # Team totals - based on target days (100% = everyone meets target)
     total_wfo = sum(a['stats']['wfo'] for a in admins)
     num_members = len(admins)
-    total_possible_wfo = working_days * num_members
-    team_wfo_pct = round((total_wfo / total_possible_wfo * 100), 1) if total_possible_wfo > 0 else 0
+    total_target = CONFIG['wfo_target_days'] * num_members
+    team_wfo_pct = round((total_wfo / total_target * 100), 1) if total_target > 0 else 0
     
     return render_template('index.html',
                          admins=admins,
@@ -330,8 +330,8 @@ def admin_calendar(n):
         return render_template('not_found.html', name=n)
     
     stats = calc_stats(admin['daily_status'])
-    # Calculate WFO percentage based on working days
-    stats['wfo_pct'] = round((stats['wfo'] / working_days * 100), 1) if working_days > 0 else 0
+    # Calculate WFO percentage based on target days
+    stats['wfo_pct'] = round((stats['wfo'] / CONFIG['wfo_target_days'] * 100), 1) if CONFIG['wfo_target_days'] > 0 else 0
     
     # Build calendar data with all dates from the sheet
     calendar_data = []
