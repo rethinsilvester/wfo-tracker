@@ -20,6 +20,28 @@ CONFIG = {
 }
 
 os.makedirs(CONFIG['data_folder'], exist_ok=True)
+os.makedirs('static/photos', exist_ok=True)
+
+
+def get_employee_photo(name, person_id=''):
+    """Find employee photo by name or ID, return URL or None"""
+    photo_dir = 'static/photos'
+    extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+    
+    # Try by name first
+    for ext in extensions:
+        photo_path = os.path.join(photo_dir, f"{name}{ext}")
+        if os.path.exists(photo_path):
+            return f"/static/photos/{name}{ext}"
+    
+    # Try by person_id
+    if person_id:
+        for ext in extensions:
+            photo_path = os.path.join(photo_dir, f"{person_id}{ext}")
+            if os.path.exists(photo_path):
+                return f"/static/photos/{person_id}{ext}"
+    
+    return None
 
 
 def find_latest_excel():
@@ -281,6 +303,7 @@ def index():
         admins.append({
             'name': emp['name'],
             'person_id': emp['person_id'],
+            'photo': get_employee_photo(emp['name'], emp['person_id']),
             'stats': stats
         })
     
@@ -290,6 +313,14 @@ def index():
     total_target = CONFIG['wfo_target_days'] * num_members
     team_wfo_pct = round((total_wfo / total_target * 100), 1) if total_target > 0 else 0
     
+    # Find top performer(s) - "Office Freaks"
+    if admins:
+        max_wfo = max(a['stats']['wfo'] for a in admins)
+        office_freaks = [a['name'] for a in admins if a['stats']['wfo'] == max_wfo and max_wfo > 0]
+    else:
+        office_freaks = []
+        max_wfo = 0
+    
     return render_template('index.html',
                          admins=admins,
                          month=month,
@@ -297,6 +328,8 @@ def index():
                          team_wfo_pct=team_wfo_pct,
                          working_days=working_days,
                          wfo_target_days=CONFIG['wfo_target_days'],
+                         office_freaks=office_freaks,
+                         max_wfo=max_wfo,
                          meta=meta)
 
 
@@ -333,6 +366,9 @@ def admin_calendar(n):
     # Calculate WFO percentage based on target days
     stats['wfo_pct'] = round((stats['wfo'] / CONFIG['wfo_target_days'] * 100), 1) if CONFIG['wfo_target_days'] > 0 else 0
     
+    # Get photo URL
+    photo = get_employee_photo(admin['name'], admin.get('person_id', ''))
+    
     # Build calendar data with all dates from the sheet
     calendar_data = []
     for date_str in month_data['date_columns']:
@@ -346,6 +382,7 @@ def admin_calendar(n):
     return render_template('calendar.html',
                          admin=admin,
                          stats=stats,
+                         photo=photo,
                          calendar_data=calendar_data,
                          month=month,
                          months=available_months,

@@ -198,6 +198,40 @@
             margin-top: 0.25rem;
         }
 
+        /* Office Freak Widget */
+        .office-freak-widget {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.1));
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            margin: 0 auto 2.5rem;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .office-freak-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--success);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .office-freak-names {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.4;
+        }
+
+        .office-freak-stats {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--success);
+            margin-top: 0.5rem;
+        }
+
         /* Admin Grid */
         .admin-grid {
             display: grid;
@@ -256,6 +290,12 @@
             font-weight: 700;
             font-size: 1.1rem;
             color: white;
+            flex-shrink: 0;
+        }
+
+        .admin-photo {
+            object-fit: cover;
+            background: none;
         }
 
         .admin-info h3 {
@@ -435,11 +475,25 @@
             </div>
         </div>
 
+        {% if office_freaks %}
+        <div class="office-freak-widget">
+            <div class="office-freak-label">Office Freaks for the Month</div>
+            <div class="office-freak-names">
+                {{ office_freaks | join(' • ') }}
+            </div>
+            <div class="office-freak-stats">{{ max_wfo }} WFO days</div>
+        </div>
+        {% endif %}
+
         <div class="admin-grid">
             {% for admin in admins %}
             <a href="/admin/{{ admin.name }}?month={{ month }}" class="admin-card">
                 <div class="admin-header">
+                    {% if admin.photo %}
+                    <img src="{{ admin.photo }}" alt="{{ admin.name }}" class="admin-avatar admin-photo">
+                    {% else %}
                     <div class="admin-avatar">{{ admin.name[:2].upper() }}</div>
+                    {% endif %}
                     <div class="admin-info">
                         <h3>{{ admin.name }}</h3>
                         {% if admin.person_id %}

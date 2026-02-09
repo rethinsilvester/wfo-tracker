@@ -113,6 +113,12 @@
             font-weight: 700;
             font-size: 1.75rem;
             color: white;
+            flex-shrink: 0;
+        }
+
+        .profile-photo {
+            object-fit: cover;
+            background: none;
         }
 
         .profile-info h1 {
@@ -421,7 +427,11 @@
         <a href="/?month={{ month }}" class="back-link">← Back to Dashboard</a>
 
         <div class="profile-header">
+            {% if photo %}
+            <img src="{{ photo }}" alt="{{ admin.name }}" class="profile-avatar profile-photo">
+            {% else %}
             <div class="profile-avatar">{{ admin.name[:2].upper() }}</div>
+            {% endif %}
             <div class="profile-info">
                 <h1>{{ admin.name }}</h1>
                 <p class="profile-meta">
